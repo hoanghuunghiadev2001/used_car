@@ -38,6 +38,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const customer = isTask ? item.customer : item;
 
+  console.log(item);
+
   // Logic tính trễ
   const calculateDelay = () => {
     if (!isTask || !item.scheduledAt) return { isLate: false, lateMinutes: 0 };
@@ -50,6 +52,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     };
   };
 
+  // 1. Định nghĩa lại Enum (nếu chưa có)
+  enum InspectStatus {
+    INSPECTED = "INSPECTED",
+    NOT_INSPECTED = "NOT_INSPECTED",
+    APPOINTED = "APPOINTED",
+  }
+
+  // 2. Định nghĩa Interface cho cấu hình
+  interface StatusConfig {
+    label: string;
+    color: string;
+    className: string;
+  }
+
+  // 3. Ràng buộc Map với Enum
+  const INSPECT_STATUS_MAP: Record<InspectStatus, StatusConfig> = {
+    [InspectStatus.INSPECTED]: {
+      label: "ĐÃ XEM XE",
+      color: "green",
+      className:
+        "bg-green-500/20! border-green-500/30! text-green-700! transition-all hover:scale-105 animate-bounce",
+    },
+    [InspectStatus.NOT_INSPECTED]: {
+      label: "CHƯA XEM XE",
+      color: "red",
+      className: "bg-red-500/20! border-red-500/30! text-red-700!",
+    },
+    [InspectStatus.APPOINTED]: {
+      label: "HẸN XEM XE",
+      color: "orange",
+      className: "bg-orange-500/20! border-orange-500/30! text-orange-700!",
+    },
+  };
   const { isLate, lateMinutes } = calculateDelay();
   const scheduledTime = isTask ? dayjs(item.scheduledAt) : null;
   const createAtTime = !isTask ? dayjs(item.createdAt) : null;
@@ -141,6 +176,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           md={8}
           className="flex flex-col sm:items-end justify-between min-h-[80px]"
         >
+          <div className="w-full flex justify-between">
+            {(() => {
+              const statusKey =
+                item.inspectStatus as keyof typeof INSPECT_STATUS_MAP;
+
+              const statusConfig = INSPECT_STATUS_MAP[statusKey] || {
+                label: "KHÔNG XÁC ĐỊNH",
+                color: "default",
+                className: "bg-gray-500/20 border-gray-500/30 text-gray-300",
+              };
+
+              return (
+                <Tag
+                  color={statusConfig.color}
+                  className={`${statusConfig.className} px-3 uppercase text-[10px] font-bold m-0 rounded-lg`}
+                >
+                  {statusConfig.label}
+                </Tag>
+              );
+            })()}
+          </div>
+
           {isTask && (
             <div className="text-right mb-auto">
               <div
