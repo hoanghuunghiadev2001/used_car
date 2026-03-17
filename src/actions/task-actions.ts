@@ -2124,7 +2124,15 @@ export async function getMyCustomersAction(filters?: any) {
 
   if (filters) {
     if (filters.urgencyLevel && filters.urgencyLevel !== "ALL") {
-      whereCondition.urgencyLevel = filters.urgencyLevel;
+      if (filters.urgencyLevel === "UNDERFINE") {
+        console.log(filters.urgencyLevel);
+
+        // Nếu chọn "Chưa xác định", tìm các bản ghi có urgencyLevel là null
+        whereCondition.urgencyLevel = null;
+      } else {
+        // Ngược lại thì lọc theo giá trị cụ thể (HIGH, MEDIUM, LOW...)
+        whereCondition.urgencyLevel = filters.urgencyLevel;
+      }
     }
     // Lọc Tên/SĐT
     if (filters.searchText) {

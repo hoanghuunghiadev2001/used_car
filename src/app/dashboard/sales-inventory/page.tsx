@@ -908,7 +908,7 @@ export default function SalesTasksPage() {
                               Chưa xác định ({stats.UNASSIGNED})
                             </span>
                           ),
-                          value: null,
+                          value: "UNDERFINE",
                         },
                       ]}
                     />

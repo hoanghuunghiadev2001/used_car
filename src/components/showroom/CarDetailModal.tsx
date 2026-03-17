@@ -288,9 +288,9 @@ export default function CarDetailModal({
                     Giá bán niêm yết
                   </div>
                   <div className="text-red-600 text-3xl font-black ">
-                    {car.sellingPrice
+                    {Number(car.sellingPrice) > 0
                       ? `${Number(car.sellingPrice).toLocaleString()} ₫`
-                      : "LIÊN HỆ GIÁ"}
+                      : "LIÊN HỆ TVBH"}
                   </div>
 
                   {car.promotionNote && (

@@ -233,9 +233,9 @@ export default function AdvancedShowroomPage() {
                             Giá niêm yết
                           </Text>
                           <Text className="text-indigo-600! font-bold text-lg">
-                            {car.sellingPrice
+                            {Number(car.sellingPrice) > 0
                               ? `${Number(car.sellingPrice).toLocaleString()} ₫`
-                              : "---"}
+                              : "liên hệ TVBH"}
                           </Text>
                         </div>
                         <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
