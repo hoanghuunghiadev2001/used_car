@@ -89,6 +89,7 @@ export default function AssignedTasksPage() {
   const [custFilters, setCustFilters] = useState({
     searchText: "",
     licensePlate: "",
+    inspectStatus: "",
     dateRange: null,
   });
 

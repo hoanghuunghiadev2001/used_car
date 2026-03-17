@@ -91,7 +91,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <Card
       hoverable
-      className={`mb-4 overflow-hidden border-none transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${isLate ? "bg-red-50/30" : "bg-white"}`}
+      className={`mb-4! overflow-hidden border-none transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${isLate ? "bg-red-50/30" : "bg-white"}`}
       bodyStyle={{ padding: "16px 20px" }}
       onClick={() => onAction("DETAIL", item)}
     >
@@ -101,7 +101,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       <Row gutter={[24, 16]} align="middle">
         <Col xs={24} sm={10} md={9}>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col lg:flex-row items-center gap-4">
             <Text
               strong
               className="text-[17px] text-slate-800 leading-none capitalize"
@@ -130,11 +130,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 </Text>
                 <UrgencyBadge type={customer?.urgencyLevel} />
               </Space>
-              <div className="flex items-center text-slate-500 text-sm font-medium">
-                <PhoneOutlined className="mr-1.5 text-xs" /> {customer?.phone}
-              </div>
-              <div className="mt-1 flex gap-2">
-                {getReferralTypeTag(customer.type)}
+              <div className="flex flex-row  gap-4 items-center ">
+                <div className="flex items-center text-slate-500 text-sm font-medium">
+                  <PhoneOutlined className="mr-1.5 text-xs" /> {customer?.phone}
+                </div>
+                <div className="mt-1 flex gap-2">
+                  {getReferralTypeTag(customer.type)}
+                </div>
               </div>
             </div>
           </div>
@@ -159,14 +161,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 {customer?.licensePlate || "---"}
               </Tag>
             </div>
-            {!isTask && (
-              <Tag
-                color={getLeadStatusHelper(customer.status).color}
-                className="rounded-full px-3 border-none w-fit"
-              >
-                {getLeadStatusHelper(customer.status).label}
-              </Tag>
-            )}
+            <div className="flex gap-2 items-center">
+              {!isTask && (
+                <Tag
+                  color={getLeadStatusHelper(customer.status).color}
+                  className="rounded-full px-3 border-none w-fit"
+                >
+                  {getLeadStatusHelper(customer.status).label}
+                </Tag>
+              )}
+              {(() => {
+                const statusKey =
+                  customer.inspectStatus as keyof typeof INSPECT_STATUS_MAP;
+
+                const statusConfig = INSPECT_STATUS_MAP[statusKey] || {
+                  label: "KHÔNG XÁC ĐỊNH",
+                  color: "default",
+                  className: "bg-gray-500/20 border-gray-500/30 text-gray-300",
+                };
+
+                return (
+                  <Tag
+                    color={statusConfig.color}
+                    className={`${statusConfig.className} px-3 uppercase text-[10px] font-bold m-0 rounded-lg`}
+                  >
+                    {statusConfig.label}
+                  </Tag>
+                );
+              })()}
+            </div>
           </div>
         </Col>
 
@@ -176,28 +199,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           md={8}
           className="flex flex-col sm:items-end justify-between min-h-[80px]"
         >
-          <div className="w-full flex justify-between">
-            {(() => {
-              const statusKey =
-                item.inspectStatus as keyof typeof INSPECT_STATUS_MAP;
-
-              const statusConfig = INSPECT_STATUS_MAP[statusKey] || {
-                label: "KHÔNG XÁC ĐỊNH",
-                color: "default",
-                className: "bg-gray-500/20 border-gray-500/30 text-gray-300",
-              };
-
-              return (
-                <Tag
-                  color={statusConfig.color}
-                  className={`${statusConfig.className} px-3 uppercase text-[10px] font-bold m-0 rounded-lg`}
-                >
-                  {statusConfig.label}
-                </Tag>
-              );
-            })()}
-          </div>
-
           {isTask && (
             <div className="text-right mb-auto">
               <div
@@ -212,7 +213,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           )}
 
-          <Space size={8} onClick={(e) => e.stopPropagation()} className="mt-2">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mt-2 flex justify-between lg:justify-center gap-4"
+          >
             <Tooltip title="Gọi ngay">
               <Button
                 shape="circle"
@@ -237,7 +241,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onClick={() => onAction("LOSE", item)}
               />
             </Tooltip>
-          </Space>
+          </div>
         </Col>
       </Row>
     </Card>

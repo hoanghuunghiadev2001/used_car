@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { Input, Select, DatePicker, Button, Tooltip } from "antd";
@@ -40,39 +41,36 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         />
       </div>
 
-      {type === "CUSTOMERS" ? (
-        <div className="lg:col-span-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
-            Biển số
-          </label>
-          <Input
-            placeholder="Biển số xe"
-            prefix={<CarOutlined />}
-            className="rounded-xl h-11 border-none bg-white shadow-sm uppercase"
-            value={filters.licensePlate}
-            onChange={(e) =>
-              setFilters({ ...filters, licensePlate: e.target.value })
-            }
-          />
-        </div>
-      ) : (
-        <div className="lg:col-span-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
-            Trạng thái GĐ
-          </label>
-          <Select
-            className="w-full h-11 custom-select"
-            value={filters.inspectStatus}
-            onChange={(val) => setFilters({ ...filters, inspectStatus: val })}
-            options={[
-              { label: "Tất cả", value: "ALL" },
-              { label: "✅ Đã xem xe", value: "INSPECTED" },
-              { label: "📅 Hẹn xem xe", value: "APPOINTED" },
-              { label: "❌ Chưa xem xe", value: "NOT_INSPECTED" },
-            ]}
-          />
-        </div>
-      )}
+      <div className="lg:col-span-2">
+        <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
+          Biển số
+        </label>
+        <Input
+          placeholder="Biển số xe"
+          prefix={<CarOutlined />}
+          className="rounded-xl h-11 border-none bg-white shadow-sm uppercase"
+          value={filters.licensePlate}
+          onChange={(e) =>
+            setFilters({ ...filters, licensePlate: e.target.value })
+          }
+        />
+      </div>
+      <div className="lg:col-span-2">
+        <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
+          Trạng thái GĐ
+        </label>
+        <Select
+          className="w-full h-11 custom-select"
+          value={filters.inspectStatus}
+          onChange={(val) => setFilters({ ...filters, inspectStatus: val })}
+          options={[
+            { label: "Tất cả", value: "ALL" },
+            { label: "✅ Đã xem xe", value: "INSPECTED" },
+            { label: "📅 Hẹn xem xe", value: "APPOINTED" },
+            { label: "❌ Chưa xem xe", value: "NOT_INSPECTED" },
+          ]}
+        />
+      </div>
 
       <div className="lg:col-span-3">
         <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
@@ -86,7 +84,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         />
       </div>
 
-      <div className="lg:col-span-4 flex gap-2">
+      <div className="lg:col-span-2 flex gap-2">
         <Button
           type="primary"
           icon={<FilterOutlined />}
