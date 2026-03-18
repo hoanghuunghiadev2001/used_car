@@ -365,6 +365,7 @@ export default function AssignedTasksPage() {
               ? dayjs(values.nextContactAt).toISOString()
               : null,
             { nextNote: values.nextContactNote },
+            values.urgencyLevel,
           );
           if (res.success) {
             messageApi.success("Cập nhật thành công");

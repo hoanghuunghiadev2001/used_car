@@ -1153,6 +1153,7 @@ export async function updateCustomerStatusAction(
     nextNote?: string;
     reasonId?: string;
   },
+  urgencyLevel?: UrgencyType,
 ) {
   try {
     const user = await getCurrentUser();
@@ -1235,6 +1236,7 @@ export async function updateCustomerStatusAction(
               nextContactNote: payload?.nextNote || null,
               lastContactResult: note || null,
               contactCount: { increment: 1 },
+              urgencyLevel: urgencyLevel,
             },
           }),
         );

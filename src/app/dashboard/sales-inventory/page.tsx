@@ -214,6 +214,7 @@ export default function SalesTasksPage() {
         taskId,
         values.nextContactAt ? dayjs(values.nextContactAt).toISOString() : null,
         { nextNote: values.nextContactNote },
+        values.urgencyLevel,
       );
       if (result.success) {
         messageApi.success("Cập nhật tương tác thành công");

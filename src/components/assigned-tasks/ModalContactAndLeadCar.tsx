@@ -11,8 +11,15 @@ import {
   Typography,
   Divider,
   ConfigProvider,
+  Select,
+  Tag,
 } from "antd";
-import { MessageOutlined, UserOutlined, BellOutlined } from "@ant-design/icons";
+import {
+  MessageOutlined,
+  UserOutlined,
+  BellOutlined,
+  FireOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 // Import locale tiếng Việt để hiển thị Thứ/Tháng thân thiện
 import viVN from "antd/locale/vi_VN";
@@ -21,7 +28,7 @@ import "dayjs/locale/vi";
 dayjs.locale("vi");
 
 const { Text } = Typography;
-
+const { Option } = Select;
 interface ModalContactProps {
   isOpen: boolean;
   onClose: () => void;
@@ -39,6 +46,7 @@ export default function ModalContactAndLeadCar({
 }: ModalContactProps) {
   const [form] = Form.useForm();
   const [isMobile, setIsMobile] = useState(false);
+  console.log(selectedLead);
 
   // 1. Nhận diện thiết bị để áp dụng CSS đặc biệt
   useEffect(() => {
@@ -54,6 +62,9 @@ export default function ModalContactAndLeadCar({
   useEffect(() => {
     if (isOpen) {
       form.resetFields();
+      if (selectedLead?.customer?.urgencyLevel) {
+        form.setFieldValue("urgencyLevel", selectedLead.customer.urgencyLevel);
+      }
     }
   }, [isOpen, form]);
 
@@ -69,6 +80,7 @@ export default function ModalContactAndLeadCar({
           : null,
         note: values.note || "",
         nextContactNote: values.nextContactNote || "",
+        urgencyLevel: values.urgencyLevel,
       };
 
       onFinish(payload);
@@ -172,6 +184,42 @@ export default function ModalContactAndLeadCar({
               </Text>
             </div>
           </div>
+
+          {/* TRƯỜNG MỚI: TRẠNG THÁI KHÁCH HÀNG */}
+          <Form.Item
+            name="urgencyLevel"
+            label={
+              <span className="font-bold text-slate-700">
+                Phân loại khách hàng
+              </span>
+            }
+            rules={[
+              { required: true, message: "Vui lòng chọn trạng thái tiềm năng" },
+            ]}
+          >
+            <Select
+              placeholder="Chọn mức độ tiềm năng"
+              size="large"
+              className="w-full"
+              suffixIcon={<FireOutlined />}
+            >
+              <Option value="HOT">
+                <Tag color="error" className="font-bold">
+                  HOT
+                </Tag>
+              </Option>
+              <Option value="WARM">
+                <Tag color="warning" className="font-bold">
+                  WARM
+                </Tag>
+              </Option>
+              <Option value="COOL">
+                <Tag color="default" className="font-bold">
+                  COOL
+                </Tag>
+              </Option>
+            </Select>
+          </Form.Item>
 
           {/* Nội dung tương tác */}
           <Form.Item
