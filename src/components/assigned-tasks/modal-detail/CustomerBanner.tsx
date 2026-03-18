@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 import { getReferralTypeTagStaff } from "@/lib/status-helper";
 import { UrgencyBadge } from "@/lib/urgencyBadge";
+import { translateSource } from "@/utils/excel-helper";
 
 const { Text, Title } = Typography;
 
@@ -123,7 +124,7 @@ export const CustomerBanner = ({ customerData, renderTime }: any) => {
                   <div className="flex items-center gap-2 mb-1 justify-center sm:justify-start text-indigo-400">
                     <UserSwitchOutlined className="text-xs" />
                     <span className="text-[9px] uppercase font-black tracking-[0.1em]">
-                      Nguồn giới thiệu
+                      Nguồn giới thiệu - {translateSource(customerData.source)}
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 justify-center sm:justify-start text-xs">

@@ -381,6 +381,14 @@ export default function SalesTasksPage() {
       },
     },
     {
+      title: "ghi chú",
+      render: (t: any) => (
+        <div className="text-[11px] text-slate-400 ">
+          {t.customer.note || "Nhu cầu chung"}
+        </div>
+      ),
+    },
+    {
       title: "XỬ LÝ",
       align: "right" as const,
       render: (record: any) => (
@@ -648,6 +656,9 @@ export default function SalesTasksPage() {
                   TỰ KHAI THÁC
                 </Tag>
               )}
+              <div className="text-[11px] text-slate-400 italic">
+                Ghi chú: {item.customer.note || "---"}
+              </div>
               {/* Chỉ hiện tag TRỄ nếu KHÔNG PHẢI khách tự khai thác */}
               {isTask && !isSelfCreated && item.isOverdue && (
                 <Tag
