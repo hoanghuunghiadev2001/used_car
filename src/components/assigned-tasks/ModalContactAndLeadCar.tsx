@@ -259,6 +259,12 @@ export default function ModalContactAndLeadCar({
 
             <Form.Item
               name="nextContactAt"
+              rules={[
+                {
+                  required: true,
+                  message: "Vui lòng chọn thời gian hẹn gọi lại",
+                },
+              ]}
               label={
                 <span className="text-amber-800 text-sm">
                   Thời gian hẹn gọi lại
@@ -292,6 +298,12 @@ export default function ModalContactAndLeadCar({
 
             <Form.Item
               name="nextContactNote"
+              rules={[
+                {
+                  required: true,
+                  message: "Vui lòng nhập ghi chú nhắc hẹn",
+                },
+              ]}
               label={
                 <span className="text-amber-800 text-sm">Ghi chú nhắc hẹn</span>
               }
