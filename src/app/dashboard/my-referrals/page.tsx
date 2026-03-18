@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Table,
   Tag,
@@ -20,73 +20,81 @@ import {
   Tooltip,
   Divider,
   Drawer,
-  Descriptions,
-  List,
-  Result,
+  Segmented,
 } from "antd";
 import {
   UserOutlined,
   SearchOutlined,
   ReloadOutlined,
   PhoneOutlined,
-  WalletOutlined,
-  MessageOutlined,
   CarOutlined,
   CalendarOutlined,
   EnvironmentOutlined,
   ClockCircleOutlined,
   InfoCircleOutlined,
   HistoryOutlined,
-  CheckCircleOutlined,
+  MessageOutlined,
   ArrowRightOutlined,
-  ZhihuOutlined,
 } from "@ant-design/icons";
 import { getMyReferralHistory } from "@/actions/referral-actions";
 import { getLeadStatusHelper } from "@/lib/status-helper";
 import dayjs from "dayjs";
 import { useDebounce } from "@/hooks/use-debounce";
 import "dayjs/locale/vi";
+import { ReferralType } from "@prisma/client";
 
 const { Title, Text, Paragraph } = Typography;
+
+// --- INTERFACES ---
+interface ReferralLead {
+  id: string;
+  fullName: string;
+  phone: string;
+  status: string;
+  type: "BUY" | "SELL" | string;
+  province?: string;
+  carModel?: { name: string };
+  leadCar?: { modelName: string };
+  budget?: number;
+  note?: string;
+  assignedTo?: { fullName: string; phone: string };
+  careHistory?: any[];
+  nextContactAt?: string;
+  nextContactNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function MyReferralPage() {
   const { message } = App.useApp();
 
   // --- STATES ---
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ReferralLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
   const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ReferralType>();
 
-  // Chi tiết khách hàng
   const [detailVisible, setDetailVisible] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [selectedLead, setSelectedLead] = useState<ReferralLead | null>(null);
 
-  const debouncedSearch = useDebounce(searchText, 1000);
+  const debouncedSearch = useDebounce(searchText, 800);
 
-  const [drawerWidth, setDrawerWidth] = useState<number | string>(500);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setDrawerWidth(window.innerWidth > 768 ? 500 : "100%");
-    };
-
-    handleResize(); // Chạy lần đầu
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
+  // Fetch dữ liệu
   const fetchData = useCallback(
-    async (page: number, search: string) => {
+    async (page: number, search: string, status: ReferralType | undefined) => {
       setLoading(true);
       try {
-        const res = await getMyReferralHistory({ page, pageSize, search });
+        // Giả sử API hỗ trợ thêm param status
+        const res = await getMyReferralHistory({
+          page,
+          pageSize: 10,
+          search,
+          type: status,
+        });
         if (res.success) {
           setData(res.data);
-          console.log(res.data);
-
           setTotal(res.total || 0);
         }
       } catch (error) {
@@ -95,28 +103,42 @@ export default function MyReferralPage() {
         setLoading(false);
       }
     },
-    [pageSize, message],
+    [message],
   );
 
   useEffect(() => {
-    fetchData(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchData]);
+    fetchData(currentPage, debouncedSearch, statusFilter);
+  }, [currentPage, debouncedSearch, statusFilter, fetchData]);
 
+  // Reset trang khi đổi bộ lọc hoặc tìm kiếm
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter]);
 
-  const handleOpenDetail = (record: any) => {
+  const handleOpenDetail = (record: ReferralLead) => {
     setSelectedLead(record);
     setDetailVisible(true);
   };
 
-  // --- TABLE COLUMNS (DESKTOP) ---
+  // --- RENDER HELPERS ---
+  const StatusTag = ({ status }: { status: string }) => {
+    const { icon, color, label } = getLeadStatusHelper(status);
+    return (
+      <Tag
+        icon={icon}
+        color={color}
+        className="rounded-full px-3 flex gap-1 py-0.5 font-bold uppercase text-[10px] border-none shadow-sm"
+      >
+        {label}
+      </Tag>
+    );
+  };
+
   const columns = [
     {
       title: "KHÁCH HÀNG",
       key: "customer",
-      render: (r: any) => (
+      render: (r: ReferralLead) => (
         <Space
           size={12}
           className="cursor-pointer group"
@@ -145,7 +167,7 @@ export default function MyReferralPage() {
     {
       title: "NHU CẦU & XE",
       key: "car",
-      render: (r: any) => {
+      render: (r: ReferralLead) => {
         const isSell = ["SELL", "SELL_TRADE_NEW", "SELL_TRADE_USED"].includes(
           r.type,
         );
@@ -183,46 +205,23 @@ export default function MyReferralPage() {
     {
       title: "TIẾN ĐỘ",
       dataIndex: "status",
-      render: (status: string) => {
-        const { icon, color, label } = getLeadStatusHelper(status);
-        return (
-          <Tag
-            icon={icon}
-            color={color}
-            className="rounded-full px-3 py-0.5 font-bold uppercase text-[10px] border-none shadow-sm"
-          >
-            {label}
-          </Tag>
-        );
-      },
+      render: (status: string) => <StatusTag status={status} />,
     },
     {
-      title: "NHÂN VIÊN XỬ LÝ",
+      title: "NHÂN VIÊN",
       dataIndex: "assignedTo",
       render: (staff: any) =>
         staff ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-              <UserOutlined />
-            </div>
-            <div className="flex flex-col">
-              <Text strong className="text-slate-700 text-xs">
-                {staff.fullName}
-              </Text>
-              <Text className="text-[10px] text-slate-400 italic">
-                Đang hỗ trợ
-              </Text>
-            </div>
+          <div className="flex items-center gap-2">
+            <Avatar size="small" icon={<UserOutlined />} />
+            <Text strong className="text-slate-700 text-xs">
+              {staff.fullName}
+            </Text>
           </div>
         ) : (
-          <Badge
-            status="default"
-            text={
-              <Text italic className="text-slate-300 text-xs">
-                Chờ tiếp nhận
-              </Text>
-            }
-          />
+          <Text italic className="text-slate-300 text-xs">
+            Chờ tiếp nhận
+          </Text>
         ),
     },
     {
@@ -244,44 +243,86 @@ export default function MyReferralPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      {/* 1. TOP HEADER SECTION */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-4 md:px-8 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="bg-indigo-600 p-3 rounded-2xl">
-              <HistoryOutlined className="text-white text-xl" />
+      {/* 1. HEADER & FILTERS */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 md:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="bg-indigo-600 p-3 rounded-2xl shadow-indigo-200 shadow-lg">
+                <HistoryOutlined className="text-white text-xl" />
+              </div>
+              <div>
+                <Title level={4} className="!m-0 text-slate-800">
+                  Lịch sử giới thiệu
+                </Title>
+                <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+                  Theo dõi tiến độ hồ sơ
+                </Text>
+              </div>
             </div>
-            <div>
-              <Title level={4} className="!m-0 text-slate-800">
-                Lịch sử giới thiệu
-              </Title>
-              <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">
-                Hồ sơ đã gửi & Tiến độ xử lý
-              </Text>
+
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <Input
+                placeholder="Tìm tên, SĐT..."
+                prefix={<SearchOutlined className="text-slate-300" />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="h-10 rounded-xl border-slate-200 flex-1 md:w-64"
+                allowClear
+              />
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() =>
+                  fetchData(currentPage, debouncedSearch, statusFilter)
+                }
+                loading={loading}
+                className="h-10 rounded-xl border-slate-200"
+              />
             </div>
           </div>
 
-          <div className="flex gap-2 w-full md:w-auto">
-            <Input
-              placeholder="Tên, SĐT, Biển số..."
-              prefix={<SearchOutlined className="text-slate-300" />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="h-10 rounded-xl border-slate-200 w-full md:w-64"
-              allowClear
-            />
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => fetchData(currentPage, debouncedSearch)}
-              loading={loading}
-              className="h-10 rounded-xl flex items-center justify-center border-slate-200"
+          {/* BỘ LỌC TRẠNG THÁI (MỚI THÊM) */}
+          <div className="mt-4 overflow-x-auto pb-2 scrollbar-hide">
+            <Segmented
+              block
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val as any)}
+              className="p-1 bg-slate-100 rounded-xl min-w-[max-content]"
+              options={[
+                {
+                  label: "Tất cả",
+                  value: undefined,
+                },
+                {
+                  label: "Mua xe",
+                  value: "BUY",
+                },
+                {
+                  label: "Bán xe",
+                  value: "SELL",
+                },
+                {
+                  label: "Đổi xe mới",
+                  value: "SELL_TRADE_NEW",
+                },
+                {
+                  label: "Đổi xe cũ",
+                  value: "SELL_TRADE_USED",
+                },
+                {
+                  label: "Định giá",
+                  value: "VALUATION",
+                },
+              ]}
             />
           </div>
+
+          {/* Thêm CSS này vào phần style jsx global của bạn để ẩn thanh cuộn xấu xí trên mobile */}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-8">
-        {/* 2. TABLE VIEW (DESKTOP) */}
+        {/* 2. DESKTOP TABLE */}
         <div className="hidden md:block">
           <Card className="rounded-2xl border-none shadow-sm overflow-hidden bg-white">
             <Table
@@ -291,7 +332,7 @@ export default function MyReferralPage() {
               loading={loading}
               pagination={{
                 current: currentPage,
-                pageSize: pageSize,
+                pageSize: 10,
                 total: total,
                 onChange: (p) => setCurrentPage(p),
                 showSizeChanger: false,
@@ -302,7 +343,7 @@ export default function MyReferralPage() {
           </Card>
         </div>
 
-        {/* 3. CARDS VIEW (MOBILE) */}
+        {/* 3. MOBILE CARDS */}
         <div className="md:hidden space-y-4">
           {loading ? (
             Array(3)
@@ -330,30 +371,21 @@ export default function MyReferralPage() {
                       </Text>
                     </div>
                   </Space>
-                  <Tag
-                    color={getLeadStatusHelper(r.status).color}
-                    className="m-0 rounded-full text-[9px] font-bold uppercase px-3 border-none"
-                  >
-                    {getLeadStatusHelper(r.status).label}
-                  </Tag>
+                  <StatusTag status={r.status} />
                 </div>
-
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                    <CarOutlined className="text-indigo-500 text-lg" />
-                  </div>
-                  <div className="flex flex-col overflow-hidden">
-                    <Text className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">
-                      Mô hình xe quan tâm
+                  <CarOutlined className="text-indigo-500 text-lg" />
+                  <div className="flex flex-col">
+                    <Text className="text-[10px] text-slate-400 uppercase font-black">
+                      Xe quan tâm
                     </Text>
-                    <Text strong className="text-xs truncate">
+                    <Text strong className="text-xs">
                       {r.carModel?.name ||
                         r.leadCar?.modelName ||
                         "Nhu cầu chung"}
                     </Text>
                   </div>
                 </div>
-
                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-dashed border-slate-200">
                   <Text className="text-[11px] text-slate-400 italic">
                     {dayjs(r.createdAt).format("DD/MM/YYYY HH:mm")}
@@ -363,259 +395,164 @@ export default function MyReferralPage() {
                     size="small"
                     className="text-indigo-600 font-bold text-[11px] p-0"
                   >
-                    XEM CHI TIẾT <ArrowRightOutlined />
+                    CHI TIẾT <ArrowRightOutlined />
                   </Button>
                 </div>
               </Card>
             ))
           ) : (
             <Empty
-              description="Không có dữ liệu"
+              description="Không tìm thấy hồ sơ nào"
               className="bg-white p-10 rounded-2xl"
             />
           )}
         </div>
       </div>
 
-      {/* 4. DRAWER CHI TIẾT (LỊCH SỬ CHĂM SÓC) */}
+      {/* 4. DETAIL DRAWER (Đã tối ưu) */}
       <Drawer
         open={detailVisible}
         onClose={() => setDetailVisible(false)}
-        width={drawerWidth}
+        width={window?.innerWidth > 768 ? 500 : "100%"}
         placement="right"
         closeIcon={null}
         headerStyle={{ display: "none" }}
-        style={{ padding: 0, backgroundColor: "#fcfcfd" }}
+        bodyStyle={{ padding: 0 }}
       >
         {selectedLead && (
-          <div className="flex flex-col h-full">
-            {/* Header Drawer */}
-            <div className="bg-indigo-600 p-6  text-white relative">
+          <div className="flex flex-col h-full bg-[#fcfcfd]">
+            <div className="bg-indigo-600 p-8 text-white relative text-center">
               <Button
                 icon={<ArrowRightOutlined rotate={180} />}
-                className="absolute top-4 left-4 bg-white/20 border-none text-white hover:bg-white/40"
+                className="absolute top-4 left-4 bg-white/20 border-none text-white"
                 onClick={() => setDetailVisible(false)}
                 shape="circle"
               />
-              <div className="flex flex-col items-center text-center ">
-                <Avatar
-                  size={70}
-                  className="bg-white text-indigo-600 font-bold mb-3 shadow-lg"
-                >
-                  {selectedLead.fullName.charAt(0)}
-                </Avatar>
-                <Title level={4} className="!m-0 !text-white">
-                  {selectedLead.fullName}
-                </Title>
-                <Text className="text-indigo-100 font-mono">
-                  {selectedLead.phone}
-                </Text>
-                <div className="mt-4 flex gap-2">
-                  <Tag
-                    color="white"
-                    className="!text-indigo-600 font-bold border-none px-4 rounded-full uppercase text-[10px]"
-                  >
-                    {getLeadStatusHelper(selectedLead.status).label}
-                  </Tag>
-                </div>
+              <Avatar
+                size={80}
+                className="bg-white text-indigo-600 font-bold mb-3 shadow-xl"
+              >
+                {selectedLead.fullName.charAt(0)}
+              </Avatar>
+              <Title level={4} className="!m-0 !text-white">
+                {selectedLead.fullName}
+              </Title>
+              <Text className="text-indigo-100 font-mono">
+                {selectedLead.phone}
+              </Text>
+              <div className="mt-4">
+                <StatusTag status={selectedLead.status} />
               </div>
             </div>
 
-            {/* Content Drawer */}
-            <div className="p-6 space-y-8 flex-1 overflow-y-auto">
-              {/* Thông tin cơ bản */}
-              <section>
-                <div className="flex items-center gap-2 mb-4 text-slate-800">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+              {/* Thông tin nhu cầu */}
+              <section className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
                   <InfoCircleOutlined className="text-indigo-500" />
-                  <Text className="font-black text-[12px] uppercase tracking-wider">
+                  <Text className="font-bold uppercase text-xs tracking-wider">
                     Thông tin hồ sơ
                   </Text>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
                     <Text className="text-[10px] text-slate-400 block uppercase">
-                      Loại hồ sơ
+                      Loại hình
                     </Text>
-                    <Text strong className="text-xs">
-                      {selectedLead.type === "BUY"
-                        ? "Khách mua xe"
-                        : "Khách bán xe"}
+                    <Text strong>
+                      {selectedLead.type === "BUY" ? "Mua xe" : "Bán xe"}
                     </Text>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                  </Col>
+                  <Col span={12}>
                     <Text className="text-[10px] text-slate-400 block uppercase">
                       Ngân sách
                     </Text>
-                    <Text strong className="text-xs text-orange-600">
+                    <Text strong className="text-orange-600">
                       {selectedLead.budget
-                        ? `${Number(selectedLead.budget).toLocaleString()}đ`
+                        ? `${selectedLead.budget.toLocaleString()}đ`
                         : "Thỏa thuận"}
                     </Text>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm col-span-2">
+                  </Col>
+                  <Col span={24}>
                     <Text className="text-[10px] text-slate-400 block uppercase">
-                      Ghi chú nhu cầu
+                      Ghi chú
                     </Text>
                     <Text className="text-xs text-slate-600">
-                      {selectedLead.note || "Không có ghi chú"}
+                      {selectedLead.note || "N/A"}
                     </Text>
-                  </div>
-                </div>
+                  </Col>
+                </Row>
               </section>
 
               {/* Nhật ký chăm sóc */}
-              {/* Nhật ký chăm sóc - Hiển thị tất cả */}
               <section>
-                <div className="flex items-center gap-2 mb-4 text-slate-800">
+                <div className="flex items-center gap-2 mb-4">
                   <HistoryOutlined className="text-indigo-500" />
-                  <Text className="font-black text-[12px] uppercase tracking-wider">
-                    Lịch sử chăm sóc chi tiết
+                  <Text className="font-bold uppercase text-xs tracking-wider">
+                    Lịch sử chăm sóc
                   </Text>
                 </div>
-
-                <div className="space-y-4">
-                  {selectedLead.careHistory &&
-                  selectedLead.careHistory.length > 0 ? (
-                    <div className="relative ml-2 pl-6 border-l-2 border-dashed border-slate-200 space-y-6">
-                      {selectedLead.careHistory.map(
-                        (history: any, index: number) => (
-                          <div key={index} className="relative">
-                            {/* Nút tròn trên timeline */}
-                            <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm bg-indigo-500" />
-
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <Text className="text-[11px] text-slate-400 font-bold uppercase">
-                                  {dayjs(history.createdAt).format(
-                                    "DD/MM/YYYY HH:mm",
-                                  )}
-                                </Text>
-                                {index === 0 && (
-                                  <Tag
-                                    color="blue"
-                                    className="m-0 text-[9px] font-bold border-none rounded-full"
-                                  >
-                                    MỚI NHẤT
-                                  </Tag>
-                                )}
-                              </div>
-                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm mt-1">
-                                <Paragraph className="text-slate-600 text-[13px] !mb-0">
-                                  {history.result ||
-                                    "Không có nội dung ghi chú"}
-                                </Paragraph>
-                                {history.status && (
-                                  <div className="mt-2 pt-2 border-t border-slate-50 flex items-center gap-1">
-                                    <Text className="text-[10px] text-slate-400">
-                                      Trạng thái:
-                                    </Text>
-                                    <Text className="text-[10px] font-bold text-indigo-500 uppercase">
-                                      {
-                                        getLeadStatusHelper(history.status)
-                                          .label
-                                      }
-                                    </Text>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  ) : (
-                    <div className="bg-white p-6 rounded-2xl border border-dashed border-slate-200 text-center">
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={
-                          <Text className="text-slate-400 text-xs">
-                            Chưa có nhật ký chăm sóc nào được ghi nhận
-                          </Text>
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* Lịch hẹn tiếp theo */}
-              <section>
-                <div className="flex items-center gap-2 mb-4 text-slate-800">
-                  <CalendarOutlined className="text-indigo-500" />
-                  <Text className="font-black text-[12px] uppercase tracking-wider">
-                    Lịch hẹn/Kế hoạch
-                  </Text>
-                </div>
-                {selectedLead.nextContactAt ? (
-                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                    <div className="flex items-center gap-3 mb-2">
-                      <ClockCircleOutlined className="text-amber-600" />
-                      <Text strong className="text-amber-700">
-                        {dayjs(selectedLead.nextContactAt).format(
-                          "DD/MM/YYYY [lúc] HH:mm",
-                        )}
-                      </Text>
-                    </div>
-                    <Text className="text-amber-600 text-xs">
-                      Nội dung: {selectedLead.nextContactNote}
-                    </Text>
+                {selectedLead.careHistory?.length ? (
+                  <div className="ml-2 pl-6 border-l-2 border-dashed border-slate-200 space-y-6">
+                    {selectedLead.careHistory.map((h, i) => (
+                      <div key={i} className="relative">
+                        <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm bg-indigo-500" />
+                        <Text className="text-[11px] text-slate-400 font-bold">
+                          {dayjs(h.createdAt).format("DD/MM/YYYY HH:mm")}
+                        </Text>
+                        <div className="bg-white p-3 rounded-xl border border-slate-100 mt-1 shadow-sm">
+                          <Paragraph className="text-slate-600 text-xs !mb-0">
+                            {h.result}
+                          </Paragraph>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    <Text className="text-slate-400 text-xs italic">
-                      Chưa có lịch hẹn tiếp theo
-                    </Text>
-                  </div>
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Chưa có nhật ký"
+                  />
                 )}
               </section>
 
-              {/* Nhân viên phụ trách & Liên hệ */}
-              <section className="pt-4">
-                <div className="bg-slate-900 rounded-3xl p-5 text-white! shadow-xl">
-                  <Text className="text-[10px] text-slate-400! uppercase font-black block mb-3 tracking-widest">
-                    Chuyên viên hỗ trợ
+              {/* Chuyên viên hỗ trợ */}
+              {selectedLead.assignedTo && (
+                <section className="bg-slate-900 rounded-2xl p-4 text-white">
+                  <Text className="text-[10px] text-slate-400 uppercase font-black block mb-3">
+                    Chuyên viên phụ trách
                   </Text>
-                  {selectedLead.assignedTo ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="bg-indigo-500">
-                          {selectedLead.assignedTo.fullName.charAt(0)}
-                        </Avatar>
-                        <div>
-                          <Text className="text-white! font-bold block">
-                            {selectedLead.assignedTo.fullName}
-                          </Text>
-                          <Text className="text-slate-400! text-xs">
-                            {selectedLead.assignedTo.phone}
-                          </Text>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="primary"
-                          icon={<PhoneOutlined />}
-                          href={`tel:${selectedLead.assignedTo.phone}`}
-                          className="bg-green-600 border-none rounded-xl h-10 font-bold"
-                        >
-                          GỌI ĐIỆN
-                        </Button>
-                        <Button
-                          icon={<MessageOutlined />}
-                          href={`https://zalo.me/${selectedLead.assignedTo.phone}`}
-                          target="_blank"
-                          className="bg-blue-600 text-white border-none rounded-xl h-10 font-bold"
-                        >
-                          ZALO
-                        </Button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="bg-indigo-500">
+                        {selectedLead.assignedTo.fullName.charAt(0)}
+                      </Avatar>
+                      <div>
+                        <Text className="text-white font-bold block">
+                          {selectedLead.assignedTo.fullName}
+                        </Text>
+                        <Text className="text-slate-400 text-xs">
+                          {selectedLead.assignedTo.phone}
+                        </Text>
                       </div>
                     </div>
-                  ) : (
-                    <Text className="text-slate-500 italic text-xs">
-                      Đang chờ hệ thống phân bổ chuyên viên...
-                    </Text>
-                  )}
-                </div>
-              </section>
+                    <Space>
+                      <Button
+                        shape="circle"
+                        icon={<PhoneOutlined />}
+                        href={`tel:${selectedLead.assignedTo.phone}`}
+                      />
+                      <Button
+                        shape="circle"
+                        className="bg-blue-600 border-none text-white"
+                        icon={<MessageOutlined />}
+                        href={`https://zalo.me/${selectedLead.assignedTo.phone}`}
+                        target="_blank"
+                      />
+                    </Space>
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         )}
@@ -632,17 +569,22 @@ export default function MyReferralPage() {
           text-transform: uppercase !important;
           font-weight: 800 !important;
           border-bottom: 1px solid #e2e8f0 !important;
-          padding: 16px !important;
         }
-        .custom-referral-table .ant-table-tbody > tr > td {
-          padding: 16px !important;
+        .ant-segmented-item-selected {
+          background: #fff !important;
+          color: #4f46e5 !important;
+          font-weight: bold;
         }
-        .ant-drawer-body::-webkit-scrollbar {
-          width: 4px;
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
-        .ant-drawer-body::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
-          border-radius: 10px;
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        /* Giúp Segmented không bị co rúm trên màn hình nhỏ */
+        .ant-segmented-item {
+          min-width: 80px;
         }
       `}</style>
     </div>

@@ -1,13 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // actions/referral-actions.ts
 "use server";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session-server";
 
+import { ReferralType } from "@prisma/client"; // Import Enum từ Prisma
+
 export async function getMyReferralHistory(params: {
   page?: number;
   pageSize?: number;
   search?: string;
+  type?: ReferralType; // <--- Thêm tham số lọc loại khách hàng
 }) {
   try {
     const user = await getCurrentUser();
@@ -20,47 +24,51 @@ export async function getMyReferralHistory(params: {
       };
     }
 
-    const { page = 1, pageSize = 10, search = "" } = params;
+    const { page = 1, pageSize = 10, search = "", type } = params;
     const skip = (page - 1) * pageSize;
 
-    const searchCondition = search
-      ? {
-          OR: [
-            { fullName: { contains: search } },
-            { phone: { contains: search } },
-            { licensePlate: { contains: search } },
-            {
-              leadCar: {
-                licensePlate: { contains: search },
-              },
-            },
-          ],
-        }
-      : {};
+    // 1. Khởi tạo điều kiện lọc cơ bản
+    const whereCondition: any = {
+      referrerId: user.id,
+    };
 
+    // 2. Thêm lọc theo loại khách hàng (SELL, BUY, VALUATION,...) nếu có
+    if (type) {
+      whereCondition.type = type;
+    }
+
+    // 3. Thêm lọc theo từ khóa tìm kiếm (Search)
+    if (search) {
+      whereCondition.OR = [
+        { fullName: { contains: search } },
+        { phone: { contains: search } },
+        { licensePlate: { contains: search } },
+        {
+          leadCar: {
+            licensePlate: { contains: search },
+          },
+        },
+      ];
+    }
+
+    // Thực hiện đếm tổng số bản ghi theo điều kiện lọc
     const totalCount = await db.customer.count({
-      where: {
-        referrerId: user.id,
-        ...searchCondition,
-      },
+      where: whereCondition,
     });
 
+    // Truy vấn dữ liệu
     const referrals = await db.customer.findMany({
-      where: {
-        referrerId: user.id,
-        ...searchCondition,
-      },
+      where: whereCondition,
       include: {
         carModel: { select: { name: true, grade: true } },
         assignedTo: { select: { fullName: true, phone: true } },
         leadCar: { select: { licensePlate: true, modelName: true } },
-        // --- THÊM PHẦN NÀY ĐỂ LẤY LỊCH SỬ CHĂM SÓC ---
         activities: {
           orderBy: {
-            createdAt: "desc", // Sắp xếp mới nhất lên đầu
+            createdAt: "desc",
           },
           include: {
-            user: { select: { fullName: true } }, // Để biết ai là người ghi chú (nếu cần)
+            user: { select: { fullName: true } },
           },
         },
       },
@@ -71,6 +79,7 @@ export async function getMyReferralHistory(params: {
       take: pageSize,
     });
 
+    // Xử lý dữ liệu trước khi trả về UI
     const processedData = referrals.map((item) => {
       const isSuccess = item.status === "DEAL_DONE";
 
@@ -88,7 +97,6 @@ export async function getMyReferralHistory(params: {
         ...item,
         groupLabel,
         isSuccess,
-        // Chuyển mảng activities thành careHistory để khớp với code UI ở bước trước
         careHistory: item.activities.map((act) => ({
           createdAt: act.createdAt,
           result: act.note,
