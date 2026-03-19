@@ -127,8 +127,8 @@ export default function CalendarInboundPage() {
               level={3}
               className="!m-0 uppercase tracking-tighter font-black"
             >
-              <CalendarOutlined className="mr-2 text-indigo-600" /> Lịch nhập xe
-              IM
+              <CalendarOutlined className="mr-2 text-indigo-600" />
+              Lịch nhập khách hàng tiềm năng xe mới (IM)
             </Title>
             <Text type="secondary">Chọn ngày để cập nhật số lượng xe</Text>
           </div>
@@ -194,7 +194,7 @@ export default function CalendarInboundPage() {
                     {Array.from(dataMap.values())
                       .filter((item) => dayjs(item.date).isSame(value, "month"))
                       .reduce((a, b) => a + b.totalCars, 0)}{" "}
-                    XE
+                    khách hàng tiềm năng xe mới
                   </Tag>
                 </div>
               );
