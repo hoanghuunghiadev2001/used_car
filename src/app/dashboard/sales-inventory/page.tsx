@@ -657,7 +657,7 @@ export default function SalesTasksPage() {
                 </Tag>
               )}
               <div className="text-[11px] text-slate-400 italic">
-                Ghi chú: {item.customer.note || "---"}
+                Ghi chú: {item.customer?.note || "---"}
               </div>
               {/* Chỉ hiện tag TRỄ nếu KHÔNG PHẢI khách tự khai thác */}
               {isTask && !isSelfCreated && item.isOverdue && (

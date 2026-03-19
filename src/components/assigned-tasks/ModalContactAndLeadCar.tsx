@@ -46,7 +46,6 @@ export default function ModalContactAndLeadCar({
 }: ModalContactProps) {
   const [form] = Form.useForm();
   const [isMobile, setIsMobile] = useState(false);
-  console.log(selectedLead);
 
   // 1. Nhận diện thiết bị để áp dụng CSS đặc biệt
   useEffect(() => {

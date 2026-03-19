@@ -38,8 +38,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const customer = isTask ? item.customer : item;
 
-  console.log(item);
-
   // Logic tính trễ
   const calculateDelay = () => {
     if (!isTask || !item.scheduledAt) return { isLate: false, lateMinutes: 0 };
