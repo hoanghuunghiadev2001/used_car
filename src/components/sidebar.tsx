@@ -255,7 +255,7 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
       ],
     },
 
-    (hasAccess(["ADMIN", "SALE_MANAGER"]) || isGobal) && {
+    (hasAccess(["ADMIN", "MANAGER"]) || isGobal) && {
       type: "group",
       label: !collapsed ? "IM Xe mới" : "",
       children: [
