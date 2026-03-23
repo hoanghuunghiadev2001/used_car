@@ -137,16 +137,17 @@ export default function ModalApproveTransaction({
   };
   // Thêm useEffect vào trong ModalApproveTransaction
   useEffect(() => {
-    if (isOpen && selectedLead?.customer) {
+    if (isOpen) {
       const customer = selectedLead.customer || selectedLead; // Linh hoạt cho cả 2 nguồn
+
       const leadCar = customer.leadCar;
 
       // Map dữ liệu từ leadCar vào các field của Form
       form.setFieldsValue({
         // Thông tin xe
         carModelId: leadCar?.carModelId || customer.carModelId,
-        licensePlate: leadCar?.licensePlate || customer.licensePlate,
-        year: leadCar?.year || customer.carYear,
+        licensePlate: leadCar?.licensePlate,
+        year: leadCar?.year,
         vin: leadCar?.vin,
         engineNumber: leadCar?.engineNumber,
         odo: leadCar?.odo,

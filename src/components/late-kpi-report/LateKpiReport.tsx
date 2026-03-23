@@ -54,6 +54,21 @@ export default function LateKpiReport({
     branchId: undefined,
   });
 
+  const formatLateTime = (totalMinutes: number) => {
+    if (totalMinutes <= 0) return "Đúng giờ";
+
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const mins = totalMinutes % 60;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} ngày`);
+    if (hours > 0) parts.push(`${hours} giờ`);
+    if (mins > 0 || parts.length === 0) parts.push(`${mins} phút`);
+
+    return `Trễ ${parts.join(" ")}`;
+  };
+
   // 1. Dùng useCallback để hàm loadData không bị khởi tạo lại vô ích
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -130,18 +145,15 @@ export default function LateKpiReport({
             <div className="text-center flex-1">
               <div className="text-[9px] text-gray-400 uppercase">Hẹn</div>
               <div className="font-bold text-blue-600">
-                {scheduled.format("HH:mm")}
+                {scheduled.format("HH:mm  DD/MM/YYYY")}
               </div>
             </div>
             <ArrowRightOutlined className="text-gray-300 mx-2" />
             <div className="text-center flex-1">
               <div className="text-[9px] text-gray-400 uppercase">Thực tế</div>
               <div className="font-bold text-red-500">
-                {actual.format("HH:mm")}
+                {actual.format("HH:mm DD/MM/YYYY")}
               </div>
-            </div>
-            <div className="ml-4 pl-4 border-l border-slate-200 text-[11px] text-gray-500">
-              {actual.format("DD/MM")}
             </div>
           </div>
         );
@@ -157,7 +169,7 @@ export default function LateKpiReport({
             color={min > 60 ? "#f5222d" : "#faad14"}
             className="rounded-md border-none font-bold px-3 py-1"
           >
-            + {min} PHÚT
+            {formatLateTime(min)}
           </Tag>
         </Tooltip>
       ),

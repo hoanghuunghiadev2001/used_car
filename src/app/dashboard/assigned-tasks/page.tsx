@@ -66,7 +66,7 @@ export default function AssignedTasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedLead, setSelectedLead] = useState<any>(null);
-
+  const [reasons, setReasons] = useState<any[]>([]);
   const [metaData, setMetaData] = useState<MetaData>({
     inventory: [],
     carModels: [],
@@ -105,7 +105,7 @@ export default function AssignedTasksPage() {
   // --- LOAD DATA FUNCTIONS ---
   const loadMetaData = async () => {
     try {
-      const [cars, models, user, ns, s, staffs, buy] = await Promise.all([
+      const [cars, models, user, ns, s, staffs, buy, rea] = await Promise.all([
         getAvailableCars(),
         getCarModelsAction(),
         getMeAction(),
@@ -113,6 +113,7 @@ export default function AssignedTasksPage() {
         getSellReasonsAction(),
         getAllStaffAPPRAISERAction(),
         getBuyReasons(),
+        getActiveReasonsAction("LOSE"),
       ]);
       setMetaData((prev) => ({
         ...prev,
@@ -124,6 +125,7 @@ export default function AssignedTasksPage() {
         staffs: staffs,
         buyReasons: buy,
       }));
+      setReasons(rea);
     } catch (err) {
       messageApi.error("Lỗi tải dữ liệu hệ thống");
     }
@@ -400,13 +402,10 @@ export default function AssignedTasksPage() {
       <ModalLoseLead
         isOpen={modals.lose}
         onClose={() => setModals((p) => ({ ...p, lose: false }))}
-        reasons={metaData.loseReasons}
+        reasons={reasons}
         selectedLead={selectedLead}
         loading={loading} // Truyền loading vào
-        onStatusChange={(status) => {
-          // Nếu component yêu cầu callback khi đổi status trong modal
-          console.log("Status changed to:", status);
-        }}
+        onStatusChange={(val) => getActiveReasonsAction(val).then(setReasons)}
         onFinish={async (v) => {
           const res = await requestLoseApproval(
             selectedLead.customer?.id || selectedLead.id,

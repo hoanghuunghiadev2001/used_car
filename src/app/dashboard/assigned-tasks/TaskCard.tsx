@@ -226,7 +226,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <Button
               type="primary"
               className="bg-blue-600 hover:bg-blue-700 rounded-lg px-6 h-10 font-bold"
-              onClick={() => onAction("APPROVE", item)}
+              onClick={() => {
+                console.log(item);
+
+                onAction("APPROVE", item);
+              }}
             >
               CHỐT
             </Button>
