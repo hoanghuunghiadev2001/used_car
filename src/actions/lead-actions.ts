@@ -369,6 +369,8 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
         conditionGrade: restValues.conditionGrade || null,
         isCertified: restValues.isCertified || false,
         certificationNote: restValues.certificationNote || null,
+        ownerType: restValues.ownerType || null,
+        origin: restValues.origin || null,
       };
 
       // 3. Upsert LeadCar
