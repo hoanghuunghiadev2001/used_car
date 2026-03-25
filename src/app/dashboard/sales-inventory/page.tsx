@@ -170,14 +170,35 @@ export default function SalesTasksPage() {
   };
 
   const filteredTasks = useMemo(() => {
+    // Lấy thời điểm đầu ngày hôm nay theo múi giờ VN
+    const todayVN = dayjs().tz("Asia/Ho_Chi_Minh").startOf("day");
+
     return tasks.filter((i) => {
+      // 1. Logic Tìm kiếm
+      const searchLower = searchText.toLowerCase();
       const matchSearch =
-        i.customer?.fullName
-          ?.toLowerCase()
-          .includes(searchText.toLowerCase()) ||
+        i.customer?.fullName?.toLowerCase().includes(searchLower) ||
         i.customer?.phone?.includes(searchText);
-      if (filterType === "Quá hạn") return matchSearch && i.isOverdue;
-      return matchSearch;
+
+      if (!matchSearch) return false;
+
+      // 2. Logic Lọc theo Segmented
+      if (filterType === "Quá hạn") {
+        return i.isOverdue;
+      }
+
+      if (filterType === "Hôm nay") {
+        // Ưu tiên scheduledAt (giờ hẹn), nếu không có dùng deadlineAt
+        const dateToCompare = i.scheduledAt || i.deadlineAt;
+        if (!dateToCompare) return false;
+
+        // Chuyển đổi thời gian của task về múi giờ VN để so sánh ngày
+        const taskDateVN = dayjs(dateToCompare).tz("Asia/Ho_Chi_Minh");
+
+        return taskDateVN.isSame(todayVN, "day");
+      }
+
+      return true; // Trường hợp "Tất cả"
     });
   }, [tasks, searchText, filterType]);
 
@@ -774,12 +795,24 @@ export default function SalesTasksPage() {
                       >
                         Danh sách kpi
                       </Title>
-                      <Segmented
-                        options={["Tất cả", "Quá hạn"]}
-                        value={filterType}
-                        onChange={(v: any) => setFilterType(v)}
-                        className="bg-slate-200/50 p-1 rounded-xl"
-                      />
+                      <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                        {/* Thêm ô tìm kiếm nhanh cho nhiệm vụ trên Desktop/Mobile */}
+                        <Input
+                          placeholder="Tìm nhiệm vụ..."
+                          prefix={<SearchOutlined className="text-slate-400" />}
+                          className="rounded-xl border-none shadow-sm h-9 w-full md:w-48"
+                          value={searchText}
+                          onChange={(e) => setSearchText(e.target.value)}
+                          allowClear
+                        />
+
+                        <Segmented
+                          options={["Tất cả", "Hôm nay", "Quá hạn"]}
+                          value={filterType}
+                          onChange={(v: any) => setFilterType(v)}
+                          className="bg-slate-200/50 p-1 rounded-xl"
+                        />
+                      </div>
                     </div>
                     {isMobile ? (
                       renderMobileFeed(filteredTasks, "TASK")
