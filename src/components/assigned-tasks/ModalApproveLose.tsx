@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Modal,
   Descriptions,
@@ -31,6 +31,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "@/lib/dayjs";
 import { getLeadStatusHelper } from "@/lib/status-helper";
+import TextArea from "antd/es/input/TextArea";
 
 const { Text } = Typography;
 
@@ -43,6 +44,7 @@ interface ModalApproveLoseProps {
     id: string,
     decision: "APPROVE" | "REJECT",
     targetStatus?: string,
+    note?: string,
   ) => void;
   history?: any[];
   historyLoading?: boolean;
@@ -57,6 +59,8 @@ export default function ModalApproveLose({
   history = [],
   historyLoading = false,
 }: ModalApproveLoseProps) {
+  const [reasonReject, setReasonReject] = useState<string>(""); // Khởi tạo chuỗi rỗng
+
   // --- GUARD CLAUSE ---
   if (!selectedActivity || selectedActivity.status !== "PENDING_LOSE_APPROVAL")
     return null;
@@ -147,6 +151,23 @@ export default function ModalApproveLose({
       <div className="bg-slate-50 p-5 rounded-2xl border border-dashed border-slate-200 italic text-slate-700 shadow-inner min-h-[80px]">
         {salesNote || "Không có nội dung giải trình chi tiết."}
       </div>
+
+      <Divider titlePlacement="left" plain className="my-6!">
+        <Text
+          type="secondary"
+          className="text-[11px] uppercase font-bold text-slate-400"
+        >
+          Lý do từ chối
+        </Text>
+      </Divider>
+
+      <Descriptions.Item label="Lý do từ chối" className="mt-3!">
+        <TextArea
+          rows={3}
+          placeholder="Nhập lý do từ chối nếu có"
+          onChange={(e) => setReasonReject(e.target.value)}
+        />
+      </Descriptions.Item>
     </div>
   );
 
@@ -357,7 +378,9 @@ export default function ModalApproveLose({
           key="reject"
           danger
           icon={<CloseCircleFilled />}
-          onClick={() => onConfirm(selectedActivity.id, "REJECT")}
+          onClick={() =>
+            onConfirm(selectedActivity.id, "REJECT", undefined, reasonReject)
+          }
           loading={loading}
           className="rounded-lg"
         >
@@ -369,7 +392,12 @@ export default function ModalApproveLose({
           className="bg-emerald-600 border-none rounded-lg hover:bg-emerald-700"
           icon={<CheckCircleFilled />}
           onClick={() =>
-            onConfirm(selectedActivity.id, "APPROVE", targetStatus)
+            onConfirm(
+              selectedActivity.id,
+              "APPROVE",
+              targetStatus,
+              reasonReject,
+            )
           }
           loading={loading}
         >

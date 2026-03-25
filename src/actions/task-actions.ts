@@ -1561,6 +1561,7 @@ export async function approveLoseRequestAction(
   activityId: string,
   decision: "APPROVE" | "REJECT",
   targetStatus?: string,
+  note?: string,
 ) {
   const auth = await getCurrentUser();
   if (!auth || (auth.role !== "ADMIN" && auth.role !== "MANAGER")) {
@@ -1605,7 +1606,7 @@ export async function approveLoseRequestAction(
             data: {
               status: finalStatus,
               note: activity.note
-                ? `${activity.customer.note}\n[ADMIN DUYỆT ĐÓNG]: ${activity.note}`
+                ? `${activity.customer.note}\n[ADMIN DUYỆT ĐÓNG]: ${activity.note} -- Lý do: ${note}`
                 : activity.customer.note,
               lastFrozenAt:
                 finalStatus === LeadStatus.FROZEN ? new Date() : null,
@@ -1617,7 +1618,7 @@ export async function approveLoseRequestAction(
               customerId: customerId,
               status: finalStatus,
               reasonId: activity.reasonId,
-              note: `✅ Admin [${auth.fullName}] đã phê duyệt đóng hồ sơ.`,
+              note: `✅ Admin [${auth.fullName}] đã phê duyệt đóng hồ sơ. -- Lý do: ${note}`,
               createdById: auth.id,
             },
           });
@@ -1634,7 +1635,7 @@ export async function approveLoseRequestAction(
           await tx.task.create({
             data: {
               title: "⚠️ TIẾP TỤC CHĂM SÓC: " + activity.customer.fullName,
-              content: `Admin từ chối yêu cầu dừng hồ sơ. Lý do: Kiểm tra lại nhu cầu khách và tương tác thêm.`,
+              content: `Admin từ chối yêu cầu dừng hồ sơ. Lý do: ${note}. `,
               assigneeId: activity.createdById,
               customerId: customerId,
               type: taskType,
@@ -1649,7 +1650,7 @@ export async function approveLoseRequestAction(
               customerId: customerId,
               status: LeadStatus.REJECTED_APPROVAL,
               reasonId: activity.reasonId,
-              note: `❌ Admin [${auth.fullName}] từ chối yêu cầu đóng hồ sơ. Yêu cầu làm tiếp.`,
+              note: `❌ Admin [${auth.fullName}] từ chối yêu cầu đóng hồ sơ. Yêu cầu làm tiếp. Lý do: ${note}`,
               createdById: auth.id,
             },
           });
@@ -1685,7 +1686,7 @@ export async function approveLoseRequestAction(
             customerName: activity.customer.fullName,
             decision: decision,
             targetStatus: targetStatus,
-            adminNote: activity.note ?? "", // Ghi chú từ người duyệt
+            adminNote: note ?? "", // Ghi chú từ người duyệt
           }),
         }),
       );

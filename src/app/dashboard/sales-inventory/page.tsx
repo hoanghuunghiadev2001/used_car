@@ -228,9 +228,11 @@ export default function SalesTasksPage() {
 
   const onFailFinish = async (values: any) => {
     setLoading(true);
+    console.log(selectedLead.id || selectedLead.customerId);
+    const taskId = selectedLead?.id || selectedLead?.customer?.id;
     try {
       const res = await requestLoseApproval(
-        selectedLead.id,
+        selectedLead.id || selectedLead.customerId,
         values.reasonId,
         values.note,
         values.status,
@@ -711,7 +713,7 @@ export default function SalesTasksPage() {
                 danger
                 icon={<CloseCircleOutlined />}
                 onClick={() => {
-                  setSelectedLead(isTask ? item : record.customer);
+                  setSelectedLead(isTask ? item.customer : record.customer);
                   setIsFailModalOpen(true);
                 }}
               />

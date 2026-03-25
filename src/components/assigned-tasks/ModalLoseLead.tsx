@@ -43,6 +43,8 @@ export default function ModalLoseLead({
   const [form] = Form.useForm();
 
   useEffect(() => {
+    console.log(selectedLead);
+
     if (isOpen) {
       // 1. Chỉ set giá trị mặc định lên giao diện
       form.setFieldsValue({ status: "LOSE" });

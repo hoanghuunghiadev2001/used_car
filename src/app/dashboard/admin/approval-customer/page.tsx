@@ -174,10 +174,11 @@ export default function ApprovalsPage() {
     id: string,
     decision: "APPROVE" | "REJECT",
     target?: string,
+    note?: string,
   ) => {
     setLoading(true);
     try {
-      const res = await approveLoseRequestAction(id, decision, target);
+      const res = await approveLoseRequestAction(id, decision, target, note);
 
       if (res.success) {
         // ✅ THÀNH CÔNG: Thông báo, đóng modal và tải lại dữ liệu
