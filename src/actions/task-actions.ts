@@ -77,6 +77,9 @@ export async function getMyTasksAction(filters?: any) {
     whereCondition.customer = {};
 
     if (filters) {
+      if (filters.urgencyLevel && filters.urgencyLevel !== "ALL") {
+        whereCondition.customer.urgencyLevel = filters.urgencyLevel;
+      }
       // Lọc theo Tên hoặc Số điện thoại
       if (filters.searchText) {
         whereCondition.customer.OR = [

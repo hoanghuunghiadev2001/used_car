@@ -45,6 +45,7 @@ import ModalLoseLead from "@/components/assigned-tasks/ModalLoseLead";
 import ModalContactAndLeadCar from "@/components/assigned-tasks/ModalContactAndLeadCar";
 import ModalDetailCustomer from "@/components/assigned-tasks/modal-detail/ModalDetailCustomer";
 import ModalSelfAddCustomer from "@/components/assigned-tasks/ModalSelfAddCustomer";
+import { UrgencyType } from "@prisma/client";
 
 const { Title, Text } = Typography;
 interface MetaData {
@@ -84,6 +85,7 @@ export default function AssignedTasksPage() {
     inspectStatus: "ALL",
     dateRange: null,
     subType: "ALL", // ALL, HOT, LATE
+    urgencyLevel: "ALL", // Dùng cho HOT / WARM / COOL
   });
 
   const [custFilters, setCustFilters] = useState({
@@ -263,17 +265,34 @@ export default function AssignedTasksPage() {
                       <Text className="text-slate-400 italic text-xs ml-2">
                         Đang hiển thị nhiệm vụ cần xử lý
                       </Text>
+
                       <Segmented
                         options={[
                           { label: "TẤT CẢ", value: "ALL" },
-                          { label: "HOT", value: "HOT" },
-                          { label: "QUÁ HẠN", value: "LATE" },
+                          { label: "🔥 HOT", value: "HOT" },
+                          { label: "☀️ WARM", value: "WARM" },
+                          { label: "❄️ COOL", value: "COOL" },
                         ]}
-                        value={taskFilters.subType}
-                        onChange={(v) =>
-                          setTaskFilters({ ...taskFilters, subType: v as any })
+                        value={
+                          taskFilters.subType === "LATE"
+                            ? "LATE"
+                            : taskFilters.urgencyLevel
                         }
-                        className="font-bold text-[11px]"
+                        onChange={(v) => {
+                          if (v === "LATE") {
+                            setTaskFilters({
+                              ...taskFilters,
+                              subType: "LATE",
+                              urgencyLevel: "ALL",
+                            });
+                          } else {
+                            setTaskFilters({
+                              ...taskFilters,
+                              subType: "ALL",
+                              urgencyLevel: v as any,
+                            });
+                          }
+                        }}
                       />
                     </div>
                     {loading ? (
