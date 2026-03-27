@@ -335,27 +335,28 @@ export default function ModalAddSelfLead({
         </Row>
 
         {watchType === "BUY" ? (
-          <Form.Item
-            name="budget"
-            label="Ngân sách dự kiến"
-            rules={[
-              {
-                required: true,
-                message: "Vui lòng nhập ngân sách dự kiến!",
-              },
-            ]}
-          >
-            <InputNumber
-              className="w-full!"
-              placeholder="VD: 600,000,000"
-              formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-              }
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, "")}
-              addonAfter="VNĐ"
-            />
-          </Form.Item>
+          <></>
         ) : (
+          // <Form.Item
+          //   name="budget"
+          //   label="Ngân sách dự kiến"
+          //   rules={[
+          //     {
+          //       required: true,
+          //       message: "Vui lòng nhập ngân sách dự kiến!",
+          //     },
+          //   ]}
+          // >
+          //   <InputNumber
+          //     className="w-full!"
+          //     placeholder="VD: 600,000,000"
+          //     formatter={(value) =>
+          //       `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+          //     }
+          //     parser={(value) => value!.replace(/\$\s?|(,*)/g, "")}
+          //     addonAfter="VNĐ"
+          //   />
+          // </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item

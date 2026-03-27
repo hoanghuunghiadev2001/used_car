@@ -205,7 +205,7 @@ export default function FormBuyCar({
             </Form.Item>
           </Col>
 
-          <Col xs={24} md={12}>
+          {/* <Col xs={24} md={12}>
             <Form.Item
               name="budget"
               label="Ngân sách (VNĐ)"
@@ -222,7 +222,7 @@ export default function FormBuyCar({
                 addonAfter="VNĐ"
               />
             </Form.Item>
-          </Col>
+          </Col> */}
 
           {(userRole === "SALES_STAFF" ||
             userRole === "PURCHASE_STAFF" ||
