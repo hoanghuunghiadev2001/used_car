@@ -205,8 +205,12 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
         : "",
       lastRes: item.lastContactResult,
       count: item.contactCount || 0,
-      nextDate: isFuture ? dayjs(item.nextContactAt).format("DD/MM/YYYY") : "",
-      nextNote: isFuture ? item.nextContactNote : "",
+      nextDate: isFuture
+        ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFuture
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
       internalNote: item.note,
     });
 
@@ -296,8 +300,12 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       timeIn: dayjs(item.createdAt).format("HH:mm"),
       lastRes: item.lastContactResult,
       count: item.contactCount || 0,
-      nextDate: isFuture ? dayjs(item.nextContactAt).format("DD/MM/YYYY") : "",
-      nextNote: isFuture ? item.nextContactNote : "",
+      nextDate: isFuture
+        ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFuture
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
       note: item.note,
     });
 
@@ -462,8 +470,10 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
       count: item.contactCount,
       nextDate: isFutureAppointment
         ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
-        : "",
-      nextNote: isFutureAppointment ? item.nextContactNote : "",
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFutureAppointment
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
       status: translateStatus(item.status),
     });
 
@@ -534,8 +544,10 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
       count: item.contactCount,
       nextDate: isFutureAppointment
         ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
-        : "",
-      nextNote: isFutureAppointment ? item.nextContactNote : "",
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFutureAppointment
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
       status: translateStatus(item.status),
     });
 
