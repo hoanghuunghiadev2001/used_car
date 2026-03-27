@@ -101,7 +101,7 @@ export async function registerAction(data: any) {
 
         await sendMail({
           to: adminEmails, // Nodemailer hỗ trợ truyền một mảng string email
-          subject: `[ĐĂNG KÝ MỚI] - Nhân viên: ${newUser.fullName}`,
+          subject: `[NHÂN VIÊN ĐĂNG KÝ MỚI]`,
           html: emailHtml,
         });
       } catch (mailError) {

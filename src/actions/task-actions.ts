@@ -1308,20 +1308,20 @@ export async function updateCustomerStatusAction(
         };
 
         // Gửi cho Sale xử lý
-        await sendMail({
-          to: customerDetail.assignedTo?.email ?? "",
-          subject: `[CRM] Tương tác khách hàng: ${customerDetail.fullName}`,
-          html: contactActivityEmailTemplate({
-            ...emailData,
-            isReferrer: false,
-          }),
-        });
+        // await sendMail({
+        //   to: customerDetail.assignedTo?.email ?? "",
+        //   subject: `[CRM] Tương tác khách hàng: ${customerDetail.fullName}`,
+        //   html: contactActivityEmailTemplate({
+        //     ...emailData,
+        //     isReferrer: false,
+        //   }),
+        // });
 
         // Gửi cho Người giới thiệu (Nếu người giới thiệu không phải là chính người xử lý)
         if (customerDetail.referrerId !== customerDetail.assignedToId) {
           await sendMail({
             to: customerDetail.referrer.email,
-            subject: `[CRM] Cập nhật tiến độ: ${customerDetail.fullName}`,
+            subject: `[CRM] Cập nhật tiến độ:`,
             html: contactActivityEmailTemplate({
               ...emailData,
               isReferrer: true,
@@ -1545,7 +1545,7 @@ export async function selfCreateCustomerAction(values: any) {
         // Gửi mail (Sử dụng hàm gửi mail của bạn - ví dụ resend hoặc nodemailer)
         await sendMail({
           to: allRecipients,
-          subject: `[HỆ THỐNG] Nhân viên tự tạo khách hàng mới - ${values.fullName.toUpperCase()}`,
+          subject: `[HỆ THỐNG] Nhân viên tự tạo khách hàng mới`,
           html: emailHtml,
         });
       }

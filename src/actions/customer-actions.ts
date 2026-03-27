@@ -376,7 +376,7 @@ export async function createCustomerAction(rawData: any) {
         emailPromises.push(
           sendMail({
             to: adminEmails.join(","),
-            subject: `[HỆ THỐNG] Có lời giới thiệu mới từ ${auth.fullName}`,
+            subject: `[HỆ THỐNG] Có lời giới thiệu mới`,
             html: referralEmailTemplate({
               customerName: result.fullName,
               typeLabel: typeLabelVn,
