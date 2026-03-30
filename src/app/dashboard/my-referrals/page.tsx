@@ -38,10 +38,9 @@ import {
 } from "@ant-design/icons";
 import { getMyReferralHistory } from "@/actions/referral-actions";
 import { getLeadStatusHelper } from "@/lib/status-helper";
-import dayjs from "dayjs";
 import { useDebounce } from "@/hooks/use-debounce";
-import "dayjs/locale/vi";
 import { ReferralType } from "@prisma/client";
+import dayjs from "@/lib/dayjs";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -59,6 +58,7 @@ interface ReferralLead {
   note?: string;
   assignedTo?: { fullName: string; phone: string };
   careHistory?: any[];
+  referralDate: string;
   nextContactAt?: string;
   nextContactNote?: string;
   createdAt: string;
@@ -95,6 +95,7 @@ export default function MyReferralPage() {
         });
         if (res.success) {
           setData(res.data);
+
           setTotal(res.total || 0);
         }
       } catch (error) {
@@ -225,6 +226,15 @@ export default function MyReferralPage() {
         ),
     },
     {
+      title: "NGÀY GT",
+      dataIndex: "referralDate",
+      render: (date: string) => {
+        if (!date) return "-";
+        // Chuyển đổi sang múi giờ Việt Nam và định dạng lại
+        return dayjs(date).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY");
+      },
+    },
+    {
       title: "CẬP NHẬT",
       dataIndex: "updatedAt",
       align: "right" as any,
@@ -344,7 +354,7 @@ export default function MyReferralPage() {
         </div>
 
         {/* 3. MOBILE CARDS */}
-        <div className="md:hidden space-y-4">
+        <div className="md:hidden space-y-4 mb-4!">
           {loading ? (
             Array(3)
               .fill(0)
@@ -354,7 +364,7 @@ export default function MyReferralPage() {
               <Card
                 key={r.id}
                 onClick={() => handleOpenDetail(r)}
-                className="rounded-2xl border-none shadow-sm active:scale-[0.98] transition-all"
+                className="rounded-2xl mb-4! border-none shadow-sm active:scale-[0.98] transition-all"
                 bodyStyle={{ padding: "16px" }}
               >
                 <div className="flex justify-between items-start mb-4">
@@ -387,9 +397,15 @@ export default function MyReferralPage() {
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-dashed border-slate-200">
-                  <Text className="text-[11px] text-slate-400 italic">
-                    {dayjs(r.createdAt).format("DD/MM/YYYY HH:mm")}
-                  </Text>
+                  <div className="flex flex-col justify-start">
+                    <Text className="text-[11px] text-slate-400 italic ">
+                      Ngày GT {dayjs(r.referralDate).format("DD/MM/YYYY")}
+                    </Text>
+                    <Text className="text-[11px] text-slate-400 italic">
+                      Cập nhật {dayjs(r.updatedAt).format("DD/MM/YYYY HH:mm")}
+                    </Text>
+                  </div>
+
                   <Button
                     type="text"
                     size="small"
