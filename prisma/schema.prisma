@@ -224,6 +224,7 @@ model Customer {
   @@index([status])
   @@index([phone])
   @@index([province]) // Thêm index này nếu bạn thường xuyên lọc khách hàng theo tỉnh thành
+  @@index([type])
 }
 
 // ==========================================

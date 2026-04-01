@@ -838,6 +838,7 @@ export async function getFrozenLeadsAction(filters?: {
 export async function getLeadsAction(params: {
   search?: string;
   status?: string;
+  type?: string; // <--- Thêm lọc theo loại khách hàng
   page?: number;
   limit?: number;
   branch?: string;
@@ -851,6 +852,7 @@ export async function getLeadsAction(params: {
   const {
     search,
     status,
+    type, // <--- Destructure type
     page = 1,
     limit = 10,
     branch,
@@ -878,6 +880,20 @@ export async function getLeadsAction(params: {
   }
 
   // --- 3. LỌC THEO TRẠNG THÁI ---
+
+  if (type && type !== "ALL") {
+    if (type === "BUY") {
+      whereClause.AND.push({ type: "BUY" });
+    } else if (type === "SELL") {
+      whereClause.AND.push({ type: "SELL" });
+    } else if (type === "TRADE") {
+      // Lọc các loại liên quan đến trao đổi (đổi xe mới hoặc xe cũ)
+      whereClause.AND.push({
+        type: { in: ["SELL_TRADE_NEW", "SELL_TRADE_USED"] },
+      });
+    }
+  }
+
   if (status && status !== "ALL") {
     whereClause.AND.push({ status: status });
   }

@@ -92,6 +92,7 @@ export default function LeadsPage() {
     limit: 10,
     search: "",
     status: "ALL",
+    type: "ALL", // <--- Thêm mới field này
     branch: "ALL", // Gửi lên Server Action là 'branch' hoặc 'branchId' tùy bạn đặt ở Action
     startDate: undefined as string | undefined,
     endDate: undefined as string | undefined,
@@ -481,7 +482,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
             <Input
               placeholder="Tìm tên, SĐT, biển số..."
               prefix={<SearchOutlined className="text-slate-400" />}
@@ -515,6 +516,18 @@ export default function LeadsPage() {
                   {b.name}
                 </Option>
               ))}
+            </Select>
+
+            <Select
+              className="w-full h-11 custom-select"
+              placeholder="Nhu cầu khách"
+              value={filters.type}
+              onChange={(val) => setFilters({ ...filters, type: val, page: 1 })}
+            >
+              <Option value="ALL">Tất cả nhu cầu</Option>
+              <Option value="SELL">Thu mua (Khách bán)</Option>
+              <Option value="BUY">Bán xe (Khách mua)</Option>
+              <Option value="TRADE">Trao đổi xe</Option>
             </Select>
             <Select
               className="w-full h-11 custom-select"
