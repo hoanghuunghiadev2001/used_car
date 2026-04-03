@@ -131,6 +131,14 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
               ),
             },
             {
+              key: "/dashboard/customer-actioned",
+              label: (
+                <Link href="/dashboard/customer-actioned">
+                  Khách hàng đã xử lý
+                </Link>
+              ),
+            },
+            {
               key: "/dashboard/contract-sales",
               label: <Link href="/dashboard/contract">Hợp đồng bán</Link>,
             },
@@ -151,6 +159,14 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
               key: "/dashboard/assigned-tasks",
               label: (
                 <Link href="/dashboard/assigned-tasks">Định giá & Thu mua</Link>
+              ),
+            },
+            {
+              key: "/dashboard/customer-actioned",
+              label: (
+                <Link href="/dashboard/customer-actioned">
+                  Khách hàng đã xử lý
+                </Link>
               ),
             },
             hasAccess(["ADMIN", "PURCHASE_STAFF"]) && {

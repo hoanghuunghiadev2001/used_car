@@ -2116,15 +2116,7 @@ export async function getMyCustomersAction(filters?: any) {
   const whereCondition: any = {
     assignedToId: user.id,
     status: {
-      in: [
-        "NEW",
-        "CONTACTED",
-        "FOLLOW_UP",
-        "INSPECTING",
-        "ASSIGNED",
-        "PENDING_DEAL_APPROVAL",
-        "PENDING_LOSE_APPROVAL",
-      ],
+      in: ["NEW", "CONTACTED", "FOLLOW_UP", "INSPECTING", "ASSIGNED"],
     },
   };
 

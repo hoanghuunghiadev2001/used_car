@@ -13,7 +13,7 @@ import {
   staffAssignmentEmailTemplate,
 } from "@/lib/mail-templates";
 import { sendMail } from "@/lib/mail-service";
-import { LeadStatus, TaskStatus, UrgencyType } from "@prisma/client";
+import { LeadStatus, Prisma, TaskStatus, UrgencyType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session-server";
 import dayjs from "@/lib/dayjs";
 import { getReferralTypeLabel } from "@/lib/utils";
@@ -1389,3 +1389,142 @@ export async function deleteCustomerAction(customerId: string) {
     return { success: false, error: error.message || "Lỗi khi xóa dữ liệu." };
   }
 }
+
+export type GetCustomersParams = {
+  tab: "done" | "frozen" | "lost" | "pending-approval";
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  province?: string;
+  carModelId?: string;
+};
+
+export async function getCustomerList({
+  tab,
+  search,
+  page = 1,
+  pageSize = 10,
+  province,
+  carModelId,
+}: GetCustomersParams) {
+  try {
+    const auth = await getCurrentUser();
+    const userId = auth?.id;
+
+    if (!userId) {
+      return { success: false, message: "Phiên đăng nhập hết hạn." };
+    }
+
+    const skip = (page - 1) * pageSize;
+    const isAdmin = auth?.role === "ADMIN" || auth?.role === "MANAGER";
+
+    // --- 1. KHỞI TẠO ĐIỀU KIỆN LỌC (WHERE) ---
+    let where: Prisma.CustomerWhereInput = {};
+
+    // --- 2. LOGIC THEO TỪNG TAB ---
+    switch (tab) {
+      case "frozen":
+        // Khách bị đóng băng HOẶC khách trễ tiến độ chăm sóc
+        where.AND = [
+          { assignedToId: isAdmin ? undefined : userId }, // Admin xem hết, Sale xem của mình
+          {
+            OR: [{ status: "FROZEN" }, { isLate: true }],
+          },
+        ];
+        break;
+
+      case "lost":
+        // Khách đã thất bại
+        where.status = "LOSE";
+        if (!isAdmin) where.assignedToId = userId;
+        break;
+      case "done":
+        // Khách đã hoàn thành
+        where.status = "DEAL_DONE";
+        if (!isAdmin) where.assignedToId = userId;
+        break;
+      case "pending-approval":
+        // Các trạng thái chờ Admin duyệt
+        where.status = {
+          in: [
+            "PENDING_DEAL_APPROVAL",
+            "PENDING_LOSE_APPROVAL",
+            "PENDING_VIEW",
+          ],
+        };
+        // Sale chỉ thấy yêu cầu mình gửi, Admin thấy tất cả
+        if (!isAdmin) where.assignedToId = userId;
+        break;
+    }
+
+    // --- 3. BỘ LỌC NÂNG CAO (GLOBAL FILTERS) ---
+
+    // Tìm kiếm (Search)
+    if (search) {
+      const searchCondition = {
+        OR: [
+          { fullName: { contains: search } },
+          { phone: { contains: search } },
+          { licensePlate: { contains: search } },
+        ],
+      };
+
+      // Kết hợp search vào điều kiện where hiện tại
+      where = { ...where, ...searchCondition };
+    }
+
+    // Lọc theo tỉnh thành
+    if (province) {
+      where.province = province;
+    }
+
+    // Lọc theo dòng xe
+    if (carModelId) {
+      where.carModelId = carModelId;
+    }
+
+    // --- 4. TRUY VẤN DB ---
+    const [customers, total] = await Promise.all([
+      db.customer.findMany({
+        where,
+        skip,
+        take: pageSize,
+        include: {
+          carModel: true,
+          assignedTo: { select: { fullName: true } },
+          _count: { select: { activities: true, tasks: true } },
+        },
+        orderBy: {
+          updatedAt: "desc", // Ưu tiên những khách vừa có tương tác lên đầu
+        },
+      }),
+      db.customer.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: customers,
+      meta: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    console.error("🔥 GET_CUSTOMERS_ERROR:", error);
+    return {
+      success: false,
+      message: "Lỗi hệ thống khi lấy danh sách khách hàng.",
+    };
+  }
+}
+export type CustomerWithRelations = Prisma.CustomerGetPayload<{
+  include: {
+    carModel: true;
+    referrer: { select: { fullName: true; role: true } };
+    assignedTo: { select: { fullName: true } };
+    sellReason: true;
+    _count: { select: { activities: true } };
+  };
+}>;

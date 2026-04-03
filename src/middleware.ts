@@ -48,6 +48,13 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "REFERRER",
     "SALE_MANAGER",
   ],
+  "/dashboard/customer-actioned": [
+    "ADMIN",
+    "MANAGER",
+    "ADMIN_MANAGER",
+    "SALES_STAFF",
+    "PURCHASE_STAFF",
+  ],
   "/dashboard/my-referrals": [
     "ADMIN",
     "MANAGER",
