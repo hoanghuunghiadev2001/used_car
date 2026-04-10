@@ -21,6 +21,8 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   SnippetsOutlined,
+  ClockCircleFilled,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -267,6 +269,19 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
           key: "/dashboard/schedules",
           icon: <ScheduleOutlined />,
           label: <Link href="/dashboard/schedules">Lịch trực</Link>,
+        },
+      ],
+    },
+    {
+      type: "group",
+      label: !collapsed ? "HOẠT ĐỘNG HÔM NAY" : "",
+      children: [
+        {
+          key: "/dashboard/staff-activities",
+          icon: <ClockCircleOutlined />,
+          label: (
+            <Link href="/dashboard/staff-activities">Hoạt động nhân viên</Link>
+          ),
         },
       ],
     },

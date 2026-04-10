@@ -38,6 +38,16 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/new-car-inbound/": ["ADMIN"], // prefix cho [id]
 
   // --- GIỚI THIỆU KHÁCH & CHUNG ---
+  "/dashboard/staff-activities": [
+    "ADMIN",
+    "MANAGER",
+    "ADMIN_MANAGER",
+    "SALES_STAFF",
+    "PURCHASE_STAFF",
+    "APPRAISER",
+    "REFERRER",
+    "SALE_MANAGER",
+  ],
   "/dashboard/referrals/new": [
     "ADMIN",
     "MANAGER",
