@@ -52,6 +52,7 @@ export const translateSource = (source: string) => {
     REFERRAL: "Khách cũ",
     BROKER: "MÔI GIỚI",
     COMMUNITY: "Diễn đàn / Hội nhóm",
+    CHOTOT: "Chợ Tốt (Cá nhân)",
 
     // --- NỘI BỘ & KHÁC ---
     HOTLINE: "Hotline",

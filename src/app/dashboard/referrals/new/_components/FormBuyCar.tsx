@@ -270,6 +270,7 @@ export default function FormBuyCar({
                           value: "LEAD_TMV",
                           label: "💬 Lead TMV (Từ Toyota VN)",
                         },
+
                         {
                           value: "YOUTUBE_COMPANY",
                           label: "🔴 Youtube công ty",
@@ -304,6 +305,10 @@ export default function FormBuyCar({
                         {
                           value: "WEBSITE_PERSONAL",
                           label: "💻 Website cá nhân",
+                        },
+                        {
+                          value: "CHOTOT",
+                          label: "💬 Chợ Tốt Cá nhân",
                         },
                         {
                           value: "REFERRAL",

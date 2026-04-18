@@ -448,6 +448,10 @@ export default function ModalSelfAddCustomer({
                         label: "🎬 Youtube cá nhân",
                       },
                       {
+                        value: "CHOTOT",
+                        label: "💬 Chợ Tốt Cá nhân",
+                      },
+                      {
                         value: "WEBSITE_PERSONAL",
                         label: "💻 Website cá nhân",
                       },

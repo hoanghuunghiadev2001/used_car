@@ -222,6 +222,10 @@ export default function ModalAddSelfLead({
                         label: "🎥 Tiktok cá nhân",
                       },
                       {
+                        value: "CHOTOT",
+                        label: "💬 Chợ Tốt Cá nhân",
+                      },
+                      {
                         value: "YOUTUBE_PERSONAL",
                         label: "🎬 Youtube cá nhân",
                       },
