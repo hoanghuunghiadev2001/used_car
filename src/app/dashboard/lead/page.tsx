@@ -433,7 +433,7 @@ export default function LeadsPage() {
 
   return (
     <div className="p-3 md:p-6 lg:p-10 bg-[#f8fafc] min-h-screen">
-      <div className="max-w-[1600px] mx-auto space-y-4">
+      <div className="max-w-400 mx-auto space-y-4">
         {/* HEADER */}
         <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
