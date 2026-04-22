@@ -1935,7 +1935,7 @@ export async function approveDealAction(
 
           await tx.customer.update({
             where: { id: customerId },
-            data: { status: "INSPECTING" },
+            data: { status: "DEAL_DONE" },
           });
 
           await tx.contract.create({
