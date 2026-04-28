@@ -116,6 +116,8 @@ model User {
   salesSchedules   SalesSchedule[]
   tasks            Task[]          @relation("UserTasks")
 
+  assignedCount Int @default(0) // Tổng số khách đã nhận (tự tạo + được chia)
+
   lastAssignedAt    DateTime?          @default(now())
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt

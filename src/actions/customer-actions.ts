@@ -159,7 +159,10 @@ export async function createCustomerAction(rawData: any) {
             role: "SALES_STAFF",
             active: true,
           },
-          orderBy: { lastAssignedAt: "asc" }, // Quan trọng: Người nào nhận khách xa nhất sẽ được ưu tiên
+          orderBy: [
+            { assignedCount: "asc" }, // 1. Ưu tiên người nhận ít khách nhất trong ngày/tổng
+            { lastAssignedAt: "asc" }, // 2. Nếu bằng số khách, ưu tiên người chờ lâu nhất
+          ],
         });
 
         if (staff) {
@@ -175,7 +178,10 @@ export async function createCustomerAction(rawData: any) {
           role: "PURCHASE_STAFF",
           active: true,
         },
-        orderBy: { lastAssignedAt: "asc" },
+        orderBy: [
+          { assignedCount: "asc" }, // 1. Ưu tiên người nhận ít khách nhất trong ngày/tổng
+          { lastAssignedAt: "asc" }, // 2. Nếu bằng số khách, ưu tiên người chờ lâu nhất
+        ],
       });
       if (staff) {
         assignedStaffId = staff.id;
@@ -298,7 +304,10 @@ export async function createCustomerAction(rawData: any) {
       if (assignedStaffId) {
         await tx.user.update({
           where: { id: assignedStaffId },
-          data: { lastAssignedAt: now },
+          data: {
+            lastAssignedAt: now,
+            assignedCount: { increment: 1 }, // Tăng số lượng lên 1
+          },
         });
       }
 

@@ -1492,11 +1492,6 @@ export async function selfCreateCustomerAction(values: any) {
         },
       });
 
-      await tx.user.update({
-        where: { id: auth.id },
-        data: { lastAssignedAt: now },
-      });
-
       revalidatePath("/dashboard/assigned-tasks");
       revalidatePath("/dashboard/my-referrals");
 
