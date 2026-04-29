@@ -269,9 +269,22 @@ export default function ModalAddSelfLead({
               showSearch
               allowClear
               loading={fetchingCars}
-              optionFilterProp="children"
               onChange={handleSelectInventoryCar}
               prefix={<BarcodeOutlined />}
+              optionFilterProp="children"
+              filterOption={(input, option) => {
+                const carData = inventory.find((c) => c.id === option?.value);
+                if (!carData) return false;
+
+                const searchValue = input.toLowerCase();
+                const stockCode = (carData.stockCode || "").toLowerCase();
+                const modelName = (carData.modelName || "").toLowerCase();
+
+                return (
+                  stockCode.includes(searchValue) ||
+                  modelName.includes(searchValue)
+                );
+              }}
               notFoundContent={
                 fetchingCars ? (
                   <Spin size="small" />
@@ -313,7 +326,19 @@ export default function ModalAddSelfLead({
                 },
               ]}
             >
-              <Select placeholder="Chọn dòng xe" showSearch>
+              <Select
+                placeholder="Chọn dòng xe"
+                showSearch
+                allowClear
+                optionFilterProp="children"
+                // Thêm hàm filter custom bên dưới
+                filterOption={(input, option: any) =>
+                  (option?.children ?? "")
+                    .toString()
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+              >
                 {carModels.map((m) => (
                   <Option key={m.id} value={m.id}>
                     {m.name}

@@ -192,7 +192,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="urgencyLevel"
             label="Trạng thái khách hàng"
-            rules={[{ required:  true }]}
+            rules={[{ required: true }]}
           >
             <Select
               placeholder="Chọn độ nóng"
@@ -459,11 +459,26 @@ export const VehicleFormFields = ({
           <Form.Item
             name="carModelId"
             label="Dòng xe"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[
+              {
+                required: isBuyType ? false : true,
+                message: "Vui lòng chọn dòng xe!",
+              },
+            ]}
           >
             <Select
               showSearch
+              allowClear
               placeholder="Chọn dòng xe"
+              // 🔍 Chỉ định lọc theo thuộc tính "label" trong mảng options
+              optionFilterProp="label"
+              // Giúp tìm kiếm không phân biệt hoa thường (Case-insensitive)
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toString()
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
               options={carModels.map((m: any) => ({
                 value: m.id,
                 label: m.name,
