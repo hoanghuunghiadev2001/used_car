@@ -46,13 +46,25 @@ export default function LeadDetailModal({
   lead,
   onCancel,
   onDelete,
-  getReferralTypeTag,
 }: any) {
   if (!lead) return null;
-
   const { label, icon, color } = getLeadStatusHelper(lead.status);
   const isSell = lead.type === "SELL";
-
+  const getReferralTypeTag = (type: string) => {
+    const config: any = {
+      SELL: { color: "volcano", label: "THU MUA" },
+      BUY: { color: "green", label: "BÁN XE" },
+      VALUATION: { color: "gold", label: "ĐỊNH GIÁ" },
+      SELL_TRADE_NEW: { color: "blue", label: "ĐỔI XE MỚI" },
+      SELL_TRADE_USED: { color: "purple", label: "ĐỔI XE CŨ" },
+    };
+    const item = config[type] || { color: "default", label: type };
+    return (
+      <Tag color={item.color} className="rounded-md font-bold text-[10px] m-0">
+        {item.label}
+      </Tag>
+    );
+  };
   return (
     <Modal
       open={open}

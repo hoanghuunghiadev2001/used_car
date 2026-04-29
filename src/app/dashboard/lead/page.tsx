@@ -53,6 +53,7 @@ import {
 } from "@/utils/excel-helper";
 import LeadDetailModal from "@/components/LeadDetailCustomer";
 import { UrgencyBadge } from "@/lib/urgencyBadge";
+import LeadsOverdueModal from "@/components/lead/LeadsOverdueComponent";
 
 const { Text, Title } = Typography;
 const { Option, OptGroup } = Select;
@@ -469,7 +470,10 @@ export default function LeadsPage() {
                   type="primary"
                   icon={<AlertOutlined />}
                   className="w-full lg:w-auto h-10 rounded-xl font-bold"
-                  onClick={() => setIsOverdueModalOpen(true)}
+                  onClick={() => {
+                    setIsOverdueModalOpen(true);
+                    console.log(1111);
+                  }}
                 >
                   QUÁ HẠN
                 </Button>
@@ -603,16 +607,27 @@ export default function LeadsPage() {
         {/* LIST (MOBILE) */}
         <div className="md:hidden">{renderMobileList()}</div>
       </div>
-
       {/* MODAL DETAIL */}
+      {/* MODAL CHI TIẾT KHÁCH HÀNG (Cái code Nghĩa gửi lúc đầu) */}
       <LeadDetailModal
         open={isModalOpen}
         lead={selectedLead}
-        onCancel={() => setIsModalOpen(false)}
-        onDelete={handleDelete}
-        getReferralTypeTag={getReferralTypeTag}
+        onCancel={() => {
+          setIsModalOpen(false);
+          setSelectedLead(null);
+        }}
       />
 
+      {/* MODAL DANH SÁCH QUÁ HẠN */}
+      <LeadsOverdueModal
+        open={isOverdueModalOpen} // Khớp với biến state 'open'
+        onClose={() => setIsOverdueModalOpen(false)}
+        onViewDetail={(lead: any) => {
+          // Bấm "Xem" từ modal quá hạn -> Lưu lead -> Mở modal chi tiết
+          setSelectedLead(lead);
+          setIsModalOpen(true);
+        }}
+      />
       <style jsx global>{`
         .custom-select .ant-select-selector {
           border-radius: 16px !important;

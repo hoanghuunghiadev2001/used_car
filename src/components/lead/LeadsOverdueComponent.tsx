@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useState, useEffect } from "react";
@@ -11,7 +12,12 @@ import {
   message,
   Tooltip,
 } from "antd";
-import { AlertOutlined, MailOutlined, ManOutlined } from "@ant-design/icons";
+import {
+  AlertOutlined,
+  MailOutlined,
+  ManOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   getOverdueCustomersAction,
@@ -21,21 +27,31 @@ import {
 
 const { Text } = Typography;
 
-export default function LeadsOverdueModal({ isOpen, onClose }: any) {
+// Sửa isOpen -> open để khớp với trang cha
+export default function LeadsOverdueModal({
+  open,
+  onClose,
+  onViewDetail,
+}: any) {
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
   const loadData = async () => {
     setLoading(true);
-    const data = await getOverdueCustomersAction();
-    setCustomers(data);
-    setLoading(false);
+    try {
+      const data = await getOverdueCustomersAction();
+      setCustomers(data);
+    } catch (error) {
+      message.error("Không thể tải danh sách quá hạn");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (isOpen) loadData();
-  }, [isOpen]);
+    if (open) loadData();
+  }, [open]);
 
   const handleSendMail = async (ids: string[]) => {
     setLoading(true);
@@ -47,7 +63,7 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
   const handleFreeze = async (ids: string[]) => {
     Modal.confirm({
       title: "Xác nhận đóng băng?",
-      content: `Hệ thống sẽ chuyển ${ids.length} khách hàng sang trạng thái ĐÓNG BĂNG và lưu lịch sử.`,
+      content: `Hệ thống sẽ chuyển ${ids.length} khách hàng sang trạng thái ĐÓNG BĂNG.`,
       onOk: async () => {
         setLoading(true);
         const res = await freezeOverdueCustomersAction(ids);
@@ -75,12 +91,11 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
       ),
     },
     {
-      title: "NGÀY TẠO",
-      render: (r: any) => (
-        <Tag color="volcano">
-          {dayjs().diff(dayjs(r.createdAt), "day")} ngày trước
-        </Tag>
-      ),
+      title: "QUÁ HẠN",
+      render: (r: any) => {
+        const days = dayjs().diff(dayjs(r.createdAt), "day");
+        return <Tag color="volcano">{days} ngày</Tag>;
+      },
     },
     {
       title: "NHÂN VIÊN",
@@ -90,13 +105,21 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
       title: "HÀNH ĐỘNG",
       render: (r: any) => (
         <Space>
-          <Tooltip title="Gửi mail cá nhân">
+          <Tooltip title="Xem chi tiết">
+            <Button
+              type="primary"
+              ghost
+              icon={<SearchOutlined />}
+              onClick={() => onViewDetail(r)} // Truyền lead ra trang cha
+            />
+          </Tooltip>
+          <Tooltip title="Gửi mail">
             <Button
               icon={<MailOutlined />}
               onClick={() => handleSendMail([r.id])}
             />
           </Tooltip>
-          <Tooltip title="Đóng băng khách này">
+          <Tooltip title="Đóng băng">
             <Button
               danger
               icon={<ManOutlined />}
@@ -112,19 +135,23 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
     <Modal
       title={
         <Space>
-          <AlertOutlined className="text-red-500" />{" "}
-          <span className="uppercase">
-            Khách hàng quá hạn ( `&gt;` 60 ngày)
+          <AlertOutlined className="text-red-500" />
+          <span className="uppercase font-bold">
+            Khách hàng quá hạn (&gt; 60 ngày)
           </span>
         </Space>
       }
-      open={isOpen}
+      open={open} // Đã sửa thành open
       onCancel={onClose}
       width={900}
       footer={null}
+      centered
+      className="premium-modal"
     >
       <div className="mb-4 flex justify-between items-center bg-red-50 p-4 rounded-2xl">
-        <Text type="secondary">Chọn các hồ sơ để xử lý hàng loạt:</Text>
+        <Text type="secondary">
+          Xử lý hàng loạt ({selectedRowKeys.length}):
+        </Text>
         <Space>
           <Button
             type="primary"
@@ -132,7 +159,7 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
             disabled={selectedRowKeys.length === 0}
             onClick={() => handleSendMail(selectedRowKeys as string[])}
           >
-            Gửi Mail Tất Cả Đã Chọn
+            Gửi Mail
           </Button>
           <Button
             danger
@@ -140,7 +167,7 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
             disabled={selectedRowKeys.length === 0}
             onClick={() => handleFreeze(selectedRowKeys as string[])}
           >
-            Đóng Băng Đã Chọn
+            Đóng Băng
           </Button>
         </Space>
       </div>
@@ -151,7 +178,7 @@ export default function LeadsOverdueModal({ isOpen, onClose }: any) {
         dataSource={customers}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: 5 }}
+        pagination={{ pageSize: 6 }}
       />
     </Modal>
   );
