@@ -93,7 +93,7 @@ export default function LeadsPage() {
     limit: 10,
     search: "",
     status: "ALL",
-    type: "ALL", // <--- Thêm mới field này
+    type: "", // <--- Thêm mới field này
     branch: "ALL", // Gửi lên Server Action là 'branch' hoặc 'branchId' tùy bạn đặt ở Action
     startDate: undefined as string | undefined,
     endDate: undefined as string | undefined,
