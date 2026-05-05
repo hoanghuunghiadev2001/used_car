@@ -959,19 +959,48 @@ export async function getLeadsAction(params: {
   return { data: serializedData, total };
 }
 
-export async function getOverdueCustomersAction() {
+// actions/customer-actions.ts
+export async function getOverdueCustomersAction(params: {
+  name?: string;
+  staffName?: string;
+  type?: string;
+}) {
   const auth = await getCurrentUser();
   if (!auth) throw new Error("Unauthorized");
+
   const sixtyDaysAgo = dayjs().subtract(60, "day").toDate();
 
+  // Phân quyền: Admin xem tất cả, Quản lý chi nhánh chỉ xem chi nhánh của mình
+  const isAdmin = ["ADMIN", "ADMIN_MANAGER"].includes(auth.role);
+
+  const where: any = {
+    createdAt: { lt: sixtyDaysAgo },
+    status: { notIn: ["DEAL_DONE", "CANCELLED", "LOSE", "FROZEN"] },
+  };
+
+  // Nếu không phải Admin, bắt buộc lọc theo branchId của User đang đăng nhập
+  if (!isAdmin) {
+    where.branchId = auth.branchId;
+  }
+
+  // Bộ lọc tìm kiếm
+  if (params.name) {
+    where.fullName = { contains: params.name };
+  }
+  if (params.type) {
+    where.type = params.type;
+  }
+  if (params.staffName) {
+    where.assignedTo = {
+      fullName: { contains: params.staffName },
+    };
+  }
+
   return await db.customer.findMany({
-    where: {
-      createdAt: { lt: sixtyDaysAgo },
-      status: { notIn: ["DEAL_DONE", "CANCELLED", "LOSE", "FROZEN"] },
-    },
+    where,
     include: {
-      referrer: { select: { fullName: true, email: true } },
-      assignedTo: { select: { fullName: true, email: true } },
+      assignedTo: { select: { fullName: true, branch: true } },
+      branch: true,
       carModel: true,
     },
     orderBy: { createdAt: "asc" },

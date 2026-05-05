@@ -138,7 +138,7 @@ export default function LeadsPage() {
       // Lưu ý: Key truyền vào đây phải khớp với key bạn bóc tách ở getLeadsAction (search, status, branch)
       const [res, overdueRes] = await Promise.all([
         getLeadsAction(filters),
-        getOverdueCustomersAction(),
+        getOverdueCustomersAction(filters),
       ]);
       setData(res.data || []);
       setTotal(res.total || 0);

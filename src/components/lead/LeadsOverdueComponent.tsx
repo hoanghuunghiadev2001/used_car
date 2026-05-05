@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Table,
   Button,
@@ -11,23 +11,29 @@ import {
   Tag,
   message,
   Tooltip,
+  Input,
+  Select,
+  Card,
+  Badge,
 } from "antd";
 import {
   AlertOutlined,
   MailOutlined,
-  ManOutlined,
+  StopOutlined,
   SearchOutlined,
+  UserOutlined,
+  SyncOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   getOverdueCustomersAction,
-  sendReminderEmailAction,
   freezeOverdueCustomersAction,
+  sendReminderEmailAction,
 } from "@/actions/customer-actions";
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
-// Sửa isOpen -> open để khớp với trang cha
 export default function LeadsOverdueModal({
   open,
   onClose,
@@ -37,21 +43,28 @@ export default function LeadsOverdueModal({
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
-  const loadData = async () => {
+  // State quản lý bộ lọc
+  const [filters, setFilters] = useState({
+    name: "",
+    staffName: "",
+    type: undefined,
+  });
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getOverdueCustomersAction();
+      const data = await getOverdueCustomersAction(filters);
       setCustomers(data);
     } catch (error) {
-      message.error("Không thể tải danh sách quá hạn");
+      message.error("Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     if (open) loadData();
-  }, [open]);
+  }, [open, loadData]);
 
   const handleSendMail = async (ids: string[]) => {
     setLoading(true);
@@ -60,69 +73,103 @@ export default function LeadsOverdueModal({
     setLoading(false);
   };
 
+  // Hành động xử lý
   const handleFreeze = async (ids: string[]) => {
     Modal.confirm({
-      title: "Xác nhận đóng băng?",
-      content: `Hệ thống sẽ chuyển ${ids.length} khách hàng sang trạng thái ĐÓNG BĂNG.`,
+      title: "Xác nhận đóng băng hồ sơ?",
+      content: `Có ${ids.length} khách hàng sẽ được chuyển sang trạng thái ĐÓNG BĂNG.`,
+      okText: "Đóng băng ngay",
+      okButtonProps: { danger: true },
       onOk: async () => {
-        setLoading(true);
         const res = await freezeOverdueCustomersAction(ids);
         if (res.success) {
-          message.success("Đã đóng băng hồ sơ quá hạn");
+          message.success("Đã thực hiện đóng băng");
           loadData();
           setSelectedRowKeys([]);
         }
-        setLoading(false);
       },
     });
   };
 
   const columns = [
     {
-      title: "KHÁCH HÀNG",
+      title: "Thông tin khách hàng",
+      key: "info",
       render: (r: any) => (
-        <div>
-          <Text strong>{r.fullName}</Text>
-          <br />
-          <Text type="secondary" className="text-[11px]">
+        <div className="flex flex-col">
+          <Text strong className="text-[#1a1a1a]">
+            {r.fullName}
+          </Text>
+          <Text type="secondary" className="text-[12px]">
             {r.phone}
           </Text>
         </div>
       ),
     },
     {
-      title: "QUÁ HẠN",
-      render: (r: any) => {
-        const days = dayjs().diff(dayjs(r.createdAt), "day");
-        return <Tag color="volcano">{days} ngày</Tag>;
+      title: "Loại GD",
+      dataIndex: "type",
+      render: (type: string) => {
+        const map: any = {
+          SELL: { color: "blue", label: "Bán" },
+          BUY: { color: "green", label: "Mua" },
+          SELL_TRADE_USED: { color: "orange", label: "Trao đổi cũ" },
+          SELL_TRADE_NEW: { color: "purple", label: "Đổi xe mới" },
+        };
+        const item = map[type] || { color: "default", label: type };
+        return <Tag color={item.color}>{item.label}</Tag>;
       },
     },
     {
-      title: "NHÂN VIÊN",
-      render: (r: any) => r.assignedTo?.fullName || "Chưa giao",
+      title: "Thời gian quá hạn",
+      render: (r: any) => {
+        const days = dayjs().diff(dayjs(r.createdAt), "day");
+        return (
+          <div className="flex items-center gap-2">
+            <Badge status={days > 90 ? "error" : "warning"} />
+            <Text
+              strong
+              className={days > 90 ? "text-red-600" : "text-orange-600"}
+            >
+              {days} ngày
+            </Text>
+          </div>
+        );
+      },
     },
     {
-      title: "HÀNH ĐỘNG",
+      title: "Nhân viên đảm nhận",
+      render: (r: any) => (
+        <Space direction="vertical" size={0}>
+          <Text>
+            <UserOutlined className="mr-1 text-gray-400" />{" "}
+            {r.assignedTo?.fullName || "N/A"}
+          </Text>
+          <Text type="secondary" className="text-[11px]">
+            {r.branch?.name}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Thao tác",
+      align: "right" as const,
       render: (r: any) => (
         <Space>
-          <Tooltip title="Xem chi tiết">
+          <Tooltip title="Chi tiết">
             <Button
-              type="primary"
-              ghost
-              icon={<SearchOutlined />}
-              onClick={() => onViewDetail(r)} // Truyền lead ra trang cha
-            />
-          </Tooltip>
-          <Tooltip title="Gửi mail">
-            <Button
-              icon={<MailOutlined />}
-              onClick={() => handleSendMail([r.id])}
+              size="small"
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => onViewDetail(r)}
             />
           </Tooltip>
           <Tooltip title="Đóng băng">
             <Button
+              size="small"
+              type="text"
               danger
-              icon={<ManOutlined />}
+              icon={<StopOutlined />}
               onClick={() => handleFreeze([r.id])}
             />
           </Tooltip>
@@ -133,44 +180,90 @@ export default function LeadsOverdueModal({
 
   return (
     <Modal
-      title={
-        <Space>
-          <AlertOutlined className="text-red-500" />
-          <span className="uppercase font-bold">
-            Khách hàng quá hạn (&gt; 60 ngày)
-          </span>
-        </Space>
-      }
-      open={open} // Đã sửa thành open
+      open={open}
       onCancel={onClose}
-      width={900}
+      width={1100}
       footer={null}
       centered
-      className="premium-modal"
+      title={null} // Tùy chỉnh header bên trong body cho đẹp hơn
     >
-      <div className="mb-4 flex justify-between items-center bg-red-50 p-4 rounded-2xl">
-        <Text type="secondary">
-          Xử lý hàng loạt ({selectedRowKeys.length}):
-        </Text>
-        <Space>
-          <Button
-            type="primary"
-            icon={<MailOutlined />}
-            disabled={selectedRowKeys.length === 0}
-            onClick={() => handleSendMail(selectedRowKeys as string[])}
-          >
-            Gửi Mail
-          </Button>
-          <Button
-            danger
-            icon={<ManOutlined />}
-            disabled={selectedRowKeys.length === 0}
-            onClick={() => handleFreeze(selectedRowKeys as string[])}
-          >
-            Đóng Băng
-          </Button>
-        </Space>
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-red-50 flex items-center justify-center rounded-xl">
+            <AlertOutlined className="text-red-500 text-xl" />
+          </div>
+          <div>
+            <Title level={4} className="!mb-0">
+              Hồ sơ quá hạn tích tụ
+            </Title>
+            <Text type="secondary">
+              Cảnh báo khách hàng chưa chốt sau 60 ngày
+            </Text>
+          </div>
+        </div>
+        <Button icon={<SyncOutlined spin={loading} />} onClick={loadData}>
+          Cập nhật
+        </Button>
       </div>
+
+      {/* THANH BỘ LỌC */}
+      <Card className="mb-4 bg-gray-50 border-none shadow-sm" size="small">
+        <div className="flex flex-wrap gap-4 items-center">
+          <Input
+            placeholder="Tên khách hàng..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            className="w-48"
+            allowClear
+            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+          />
+          <Input
+            placeholder="Tên nhân viên..."
+            prefix={<UserOutlined className="text-gray-400" />}
+            className="w-48"
+            allowClear
+            onChange={(e) =>
+              setFilters({ ...filters, staffName: e.target.value })
+            }
+          />
+          <Select
+            placeholder="Loại khách hàng"
+            className="w-40"
+            allowClear
+            onChange={(val) => setFilters({ ...filters, type: val })}
+            options={[
+              { label: "Mua xe", value: "BUY" },
+              { label: "Bán xe", value: "SELL" },
+              { label: "Trao đổi mới", value: "SELL_TRADE_NEW" },
+              { label: "Trao đổi cũ", value: "SELL_TRADE_USED" },
+            ]}
+          />
+        </div>
+      </Card>
+
+      {/* XỬ LÝ HÀNG LOẠT */}
+      {selectedRowKeys.length > 0 && (
+        <div className="mb-4 flex justify-between items-center bg-blue-50 p-3 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-1">
+          <Text strong className="text-blue-700">
+            Đã chọn {selectedRowKeys.length} hồ sơ:
+          </Text>
+          <Space>
+            <Button
+              type="primary"
+              icon={<MailOutlined />}
+              onClick={() => handleSendMail(selectedRowKeys as string[])}
+            >
+              Gửi Mail nhắc nhở
+            </Button>
+            <Button
+              danger
+              icon={<StopOutlined />}
+              onClick={() => handleFreeze(selectedRowKeys as string[])}
+            >
+              Đóng băng hàng loạt
+            </Button>
+          </Space>
+        </div>
+      )}
 
       <Table
         rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
@@ -178,7 +271,12 @@ export default function LeadsOverdueModal({
         dataSource={customers}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: 6 }}
+        className="premium-table border rounded-xl overflow-hidden"
+        pagination={{
+          pageSize: 8,
+          showTotal: (total) => `Tổng cộng ${total} khách hàng`,
+        }}
+        scroll={{ y: 450 }}
       />
     </Modal>
   );
