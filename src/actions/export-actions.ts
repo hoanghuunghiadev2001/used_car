@@ -47,6 +47,7 @@ export async function getExportCustomerData(
       branch: { select: { name: true } },
       assignedTo: { select: { fullName: true } },
       inspectorRef: { select: { fullName: true } },
+
       referrer: {
         select: {
           fullName: true,
@@ -156,7 +157,7 @@ export async function getExportCustomerData(
       lastActivityNote:
         latestActivity?.note || customer.lastContactResult || "N/A",
       lastActivityStaff: latestActivity?.user?.fullName || "N/A",
-
+      inspectDoneDate: customer?.inspectDoneDate,
       // Xử lý Decimal cho LeadCar
       leadCar: leadCar
         ? {
