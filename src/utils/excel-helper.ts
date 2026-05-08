@@ -147,7 +147,7 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     { header: "GIÁ KH KỲ VỌNG", key: "expPrice", width: 15 },
     { header: "GIÁ ĐỊNH GIÁ (T-SURE)", key: "tsurePrice", width: 18 },
     { header: "NV GIÁM ĐỊNH", key: "inspector", width: 20 },
-    { header: "Ngày Giám định", key: "inspectorDate", width: 20 },
+    { header: "NGÀY GIÁM ĐỊNH", key: "inspectorDate", width: 20 },
     { header: "TÌNH TRẠNG XEM XE", key: "inspectStatus", width: 18 },
     { header: "ĐỊA ĐIỂM XEM XE", key: "inspectLoc", width: 20 },
 
@@ -200,7 +200,9 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       expPrice: Number(item.leadCar?.expectedPrice || item.expectedPrice || 0),
       tsurePrice: Number(item.leadCar?.tSurePrice || 0),
       inspector: item.inspectorRef?.fullName,
-      inspectorDate: item.inspectDoneDate ? dayjs(item.inspectDoneDate).format("DD/MM/YYYY") : "",
+      inspectorDate: item.inspectDoneDate
+        ? dayjs(item.inspectDoneDate).format("DD/MM/YYYY")
+        : "",
       inspectStatus: translateStatus(item.inspectStatus),
       inspectLoc: item.inspectLocation || "---",
       lastDate: item.lastContactAt
