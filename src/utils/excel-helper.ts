@@ -251,6 +251,7 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 },
     { header: "TỈNH/THÀNH", key: "province", width: 15 },
     { header: "ĐỊA CHỈ", key: "address", width: 35 },
+    { header: "NGÀY XEM XE", key: "dateViewCar", width: 35 },
 
     // Nhóm: Nhu cầu xe (Rất quan trọng)
     { header: "MODEL QUAN TÂM", key: "model", width: 20 },
@@ -289,6 +290,7 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       phone: item.phone,
       province: item.province,
       address: item.address,
+      dateViewCar: dayjs(item.dateViewCar).format("DD/MM/YYYY") ?? "-",
       refStaff: item.referrer?.fullName,
       model: item.carModel?.name || "---",
       grade: item.carModel?.grade || "---",
@@ -500,6 +502,7 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
     { header: "NVBH Tiếp nhận", key: "staff", width: 20 },
     { header: "Ngày nhận thông tin", key: "dateIn", width: 15 },
     { header: "Tên khách hàng", key: "name", width: 25 },
+    { header: "Ngày xem xe", key: "dateViewCar", width: 15 },
     { header: "Đánh giá trạng thái", key: "level", width: 15 },
     { header: "Tình trạng hồ sơ", key: "status", width: 15 },
     { header: "Lý do Đóng băng/LOST", key: "reasonDetail", width: 15 },
@@ -537,6 +540,7 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
       reasonDetail: reasonDetail || "",
       address: `${item.province || ""} ${item.address || ""}`,
       province: item.province,
+      dateViewCar: dayjs(item.dateViewCar).format("DD/MM/YYYY") ?? "-",
       source: item.referrer?.department?.name || "Vãng lai",
       sourceDetail: translateSource(item.source),
       budget: item.budget ? Number(item.budget) : null,

@@ -23,21 +23,17 @@ import {
   ToolOutlined,
   FileSearchOutlined,
   FireOutlined,
-  EnvironmentOutlined,
+  GlobalOutlined,
   PlusOutlined,
   PictureOutlined,
   WarningOutlined,
-  GlobalOutlined,
   HomeOutlined,
-  CheckCircleOutlined,
   InfoCircleOutlined,
-  StarOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
-// Danh sách 63 tỉnh thành Việt Nam chuẩn
 const provinces = [
   "An Giang",
   "Bà Rịa - Vũng Tàu",
@@ -112,22 +108,18 @@ export const VehicleFormFields = ({
   users,
   type,
 }: any) => {
-  const form = Form.useFormInstance(); // Lấy form instance để kết nối useWatch
+  const form = Form.useFormInstance();
   const inspectStatus = Form.useWatch("inspectStatus", form);
   const isCertified = Form.useWatch("isCertified", form);
-
-  const hasFine = Form.useWatch("hasFine");
+  const hasFine = Form.useWatch("hasFine", form);
   const isBuyType = type === "BUY";
 
-  const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
   const insuranceregistrationDeadline = Form.useWatch(
     "insuranceregistrationDeadline",
+    form,
   );
-
-  const insuranceTNDS = Form.useWatch("insuranceTNDS");
-
-  const insuranceVC = Form.useWatch("insuranceVC");
+  const insuranceTNDS = Form.useWatch("insuranceTNDS", form);
+  const insuranceVC = Form.useWatch("insuranceVC", form);
 
   const conditionOptions = [
     "Mức 5: Xuất sắc: gần như mới",
@@ -137,32 +129,50 @@ export const VehicleFormFields = ({
     "Mức 1: Cần phải sửa chửa nhiều",
   ];
 
-  // Logic Upload Cloudinary
-  const handleCloudinaryUpload = async (options: any) => {
+  // 🚀 LOGIC CHUYỂN ĐỔI FILE SANG CHUỖI BASE64 ĐỂ LƯU THẲNG VÀO DATABASE
+  const handleBase64Upload = async (options: any) => {
     const { file, onSuccess, onError } = options;
-    if (!CLOUD_NAME || !UPLOAD_PRESET) return onError("Missing config");
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", UPLOAD_PRESET);
-
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-      const data = await res.json();
-      if (data.secure_url) onSuccess(data);
-      else onError("Upload failed");
-    } catch (err) {
-      onError(err);
+    // Giới hạn dung lượng file để chống tràn payload server (khuyên dùng dưới 3MB)
+    const isLt3M = file.size / 1024 / 1024 < 3;
+    if (!isLt3M) {
+      onError(new Error("File phải nhỏ hơn 3MB để lưu vào database!"));
+      return;
     }
+
+    const reader = new FileReader();
+    // Đọc file dưới dạng Data URL (Bản chất chính là chuỗi Base64 kèm định dạng ảnh/pdf)
+    reader.readAsDataURL(file as Blob);
+
+    reader.onload = () => {
+      // Khi đọc thành công, trả về Object mô phỏng cấu trúc của Cloudinary cũ
+      // để dữ liệu fileList của Ant Design nhận diện tốt url hiển thị (preview)
+      const base64String = reader.result as string;
+      onSuccess({
+        uid: file.uid,
+        name: file.name,
+        status: "done",
+        url: base64String, // Chuỗi base64 này sẽ được đưa vào làm url preview và submit lên server
+        secure_url: base64String, // Dự phòng nếu luồng xử lý submit của bạn đang bóc tách trường này
+      });
+    };
+
+    reader.onerror = (error) => {
+      onError(error);
+    };
   };
 
-  const normFile = (e: any) => (Array.isArray(e) ? e : e?.fileList);
+  const normFile = (e: any) => {
+    if (Array.isArray(e)) return e;
+    // Map lại danh sách file để gán trường url bằng dữ liệu base64 đã nhận từ onSuccess
+    return e?.fileList?.map((file: any) => {
+      if (file.response && file.response.url) {
+        file.url = file.response.url;
+      }
+      return file;
+    });
+  };
+
   const showInspectionDetails = !isBuyType && inspectStatus === "INSPECTED";
 
   return (
@@ -228,17 +238,34 @@ export const VehicleFormFields = ({
         </Col>
 
         {isBuyType && (
-          <Col xs={24} md={8}>
-            <Form.Item name="buyReasonId" label="Mục đích mua xe">
-              <Select
-                placeholder="Chọn lý do mua xe"
-                options={buyReasons?.map((r: any) => ({
-                  value: r.id,
-                  label: r.name,
-                }))}
-              />
-            </Form.Item>
-          </Col>
+          <>
+            <Col xs={24} md={8}>
+              <Form.Item name="buyReasonId" label="Mục đích mua xe">
+                <Select
+                  placeholder="Chọn lý do mua xe"
+                  options={buyReasons?.map((r: any) => ({
+                    value: r.id,
+                    label: r.name,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="dateViewCar"
+                label="Ngày xem xe"
+                rules={[{ required: true, message: "Nhập Ngày xem xe" }]}
+              >
+                <DatePicker
+                  classNames={{ popup: { root: "mobile-center-picker" } }}
+                  className="w-full"
+                  format="DD/MM/YYYY"
+                  placeholder="Chọn ngày"
+                />
+              </Form.Item>
+            </Col>
+          </>
         )}
       </Row>
 
@@ -275,12 +302,7 @@ export const VehicleFormFields = ({
                 name="inspectorId"
                 label="Nhân viên giám định"
                 rules={[
-                  {
-                    required:
-                      !isBuyType && inspectStatus === "INSPECTED"
-                        ? true
-                        : false,
-                  },
+                  { required: !isBuyType && inspectStatus === "INSPECTED" },
                 ]}
               >
                 <Select
@@ -298,20 +320,11 @@ export const VehicleFormFields = ({
                 name="inspectDoneDate"
                 label="Ngày hoàn tất GĐ"
                 rules={[
-                  {
-                    required:
-                      !isBuyType && inspectStatus === "INSPECTED"
-                        ? true
-                        : false,
-                  },
+                  { required: !isBuyType && inspectStatus === "INSPECTED" },
                 ]}
               >
                 <DatePicker
-                  classNames={{
-                    popup: {
-                      root: "mobile-center-picker", // Thay cho dropdownClassName
-                    },
-                  }}
+                  classNames={{ popup: { root: "mobile-center-picker" } }}
                   className="w-full"
                   showTime
                   format="DD/MM/YYYY"
@@ -319,7 +332,6 @@ export const VehicleFormFields = ({
               </Form.Item>
             </Col>
 
-            {/* LOGIC PHẠT NGUỘI */}
             <Col xs={24} md={6}>
               <Form.Item
                 name="hasFine"
@@ -366,31 +378,19 @@ export const VehicleFormFields = ({
                 name="inspectLocation"
                 label="Địa điểm giám định"
                 rules={[
-                  {
-                    required:
-                      !isBuyType && inspectStatus === "INSPECTED"
-                        ? true
-                        : false,
-                  },
+                  { required: !isBuyType && inspectStatus === "INSPECTED" },
                 ]}
               >
                 <Select
                   placeholder="Chọn nơi xem xe"
                   className="custom-select-responsive"
-                  // Thêm các địa điểm cố định bạn yêu cầu
                   options={[
                     {
                       value: "Toyota Bình Dương",
                       label: "Tại Toyota Bình Dương",
                     },
-                    {
-                      value: "Toyota Mỹ Phước",
-                      label: "Tại Toyota Mỹ Phước",
-                    },
-                    {
-                      value: "Nhà khách hàng",
-                      label: "Tại nhà khách hàng",
-                    },
+                    { value: "Toyota Mỹ Phước", label: "Tại Toyota Mỹ Phước" },
+                    { value: "Nhà khách hàng", label: "Tại nhà khách hàng" },
                     {
                       value: "Công ty khách hàng",
                       label: "Tại công ty khách hàng",
@@ -408,7 +408,7 @@ export const VehicleFormFields = ({
                 <Select
                   placeholder="Chọn lý do hệ thống"
                   className="custom-select-responsive"
-                  dropdownMatchSelectWidth={false} // Rất quan trọng: cho phép menu rộng hơn ô chọn
+                  dropdownMatchSelectWidth={false}
                   listHeight={300}
                   options={sellReasons?.map((r: any) => ({
                     value: r.id,
@@ -444,7 +444,7 @@ export const VehicleFormFields = ({
         </Card>
       )}
 
-      {/* --- SECTION 3: THÔNG SỐ KỸ THUẬT XE (LEAD CAR) --- */}
+      {/* --- SECTION 3: THÔNG SỐ KỸ THUẬT XE --- */}
       <Divider className="!mb-6">
         <Space>
           <CarOutlined className="text-blue-500" />
@@ -460,19 +460,14 @@ export const VehicleFormFields = ({
             name="carModelId"
             label="Dòng xe"
             rules={[
-              {
-                required: isBuyType ? false : true,
-                message: "Vui lòng chọn dòng xe!",
-              },
+              { required: !isBuyType, message: "Vui lòng chọn dòng xe!" },
             ]}
           >
             <Select
               showSearch
               allowClear
               placeholder="Chọn dòng xe"
-              // 🔍 Chỉ định lọc theo thuộc tính "label" trong mảng options
               optionFilterProp="label"
-              // Giúp tìm kiếm không phân biệt hoa thường (Case-insensitive)
               filterOption={(input, option) =>
                 (option?.label ?? "")
                   .toString()
@@ -490,7 +485,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="modelName"
             label="Phiên bản / Grade"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Input placeholder="Ví dụ: 1.5G, 2.0V, Premium..." />
           </Form.Item>
@@ -500,7 +495,7 @@ export const VehicleFormFields = ({
             <Form.Item
               name="licensePlate"
               label="Biển số xe"
-              rules={[{ required: isBuyType ? false : true }]}
+              rules={[{ required: !isBuyType }]}
               getValueFromEvent={(e) =>
                 e.target.value
                   .toUpperCase()
@@ -520,7 +515,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="year"
             label="Năm sản xuất"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <InputNumber className="w-full" placeholder="2022" />
           </Form.Item>
@@ -531,7 +526,6 @@ export const VehicleFormFields = ({
               options={[
                 { value: "SEDAN", label: "Sedan" },
                 { value: "HATCHBACK", label: "Hatchback" },
-
                 { value: "SUV", label: "SUV" },
                 { value: "PICKUP", label: "Bán tải" },
                 { value: "MPV", label: "MPV" },
@@ -558,7 +552,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="odo"
             label="Số ODO (km)"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <InputNumber
               className="w-full"
@@ -573,7 +567,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="transmission"
             label="Hộp số"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Select
               options={[
@@ -587,7 +581,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="fuelType"
             label="Nhiên liệu"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Select
               options={[
@@ -616,7 +610,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="color"
             label="Màu ngoại thất"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Input placeholder="Trắng, Đen, Đỏ..." />
           </Form.Item>
@@ -625,7 +619,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="interiorColor"
             label="Màu nội thất"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Input placeholder="Trắng, Đen, Đỏ..." />
           </Form.Item>
@@ -634,14 +628,14 @@ export const VehicleFormFields = ({
           <Form.Item
             name="seats"
             label="Số chỗ ngồi"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <InputNumber className="w-full" />
           </Form.Item>
         </Col>
         <Col xs={12} md={6}>
           <Form.Item
-            name="driveTrain" // Lưu ý: Schema của bạn là driveTrain (chữ T viết hoa)
+            name="driveTrain"
             label="Hệ dẫn động"
             rules={[{ required: !isBuyType }]}
           >
@@ -691,7 +685,6 @@ export const VehicleFormFields = ({
                   </Select>
                 </Form.Item>
               </Col>
-
               <Col xs={24} md={12}>
                 <Form.Item
                   name="isCertified"
@@ -706,7 +699,6 @@ export const VehicleFormFields = ({
                   />
                 </Form.Item>
               </Col>
-
               <Col span={24}>
                 <Form.Item
                   name="certificationNote"
@@ -766,7 +758,7 @@ export const VehicleFormFields = ({
           <Form.Item
             name="ownerType"
             label="Hình thức sở hữu"
-            rules={[{ required: isBuyType ? false : true }]}
+            rules={[{ required: !isBuyType }]}
           >
             <Select
               options={[
@@ -784,11 +776,9 @@ export const VehicleFormFields = ({
             name="insuranceregistrationDeadline"
             label="Đăng kiểm"
             valuePropName="checked"
-            vertical-align="middle"
           >
             <Switch
               checkedChildren="CÒN HẠN"
-              defaultValue={true}
               unCheckedChildren="HẾT/KHÔNG CÓ"
               className={insuranceregistrationDeadline ? "bg-blue-500" : ""}
             />
@@ -797,14 +787,10 @@ export const VehicleFormFields = ({
             <Form.Item
               name="registrationDeadline"
               label="Hạn đăng kiểm"
-              rules={[{ required: isBuyType ? false : true }]}
+              rules={[{ required: !isBuyType }]}
             >
               <DatePicker
-                classNames={{
-                  popup: {
-                    root: "mobile-center-picker", // Thay cho dropdownClassName
-                  },
-                }}
+                classNames={{ popup: { root: "mobile-center-picker" } }}
                 className="w-full"
                 format="DD/MM/YYYY"
               />
@@ -820,7 +806,6 @@ export const VehicleFormFields = ({
           >
             <Switch
               checkedChildren="CÒN HẠN"
-              defaultValue={true}
               unCheckedChildren="HẾT/KHÔNG CÓ"
               className={insuranceTNDS ? "bg-blue-500" : ""}
             />
@@ -837,15 +822,10 @@ export const VehicleFormFields = ({
               <Form.Item
                 name="insuranceTNDSDeadline"
                 label="Hạn bảo hiểm TNDS"
-                className="animate-slideDown"
                 rules={[{ required: true, message: "Nhập ngày hết hạn TNDS" }]}
               >
                 <DatePicker
-                  classNames={{
-                    popup: {
-                      root: "mobile-center-picker", // Thay cho dropdownClassName
-                    },
-                  }}
+                  classNames={{ popup: { root: "mobile-center-picker" } }}
                   className="w-full"
                   format="DD/MM/YYYY"
                   placeholder="Chọn ngày"
@@ -864,7 +844,6 @@ export const VehicleFormFields = ({
             <Switch
               checkedChildren="CÒN HẠN"
               unCheckedChildren="HẾT/KHÔNG CÓ"
-              defaultValue={true}
               className={insuranceVC ? "bg-orange-500" : ""}
             />
           </Form.Item>
@@ -883,11 +862,7 @@ export const VehicleFormFields = ({
                 rules={[{ required: true, message: "Nhập ngày hết hạn VC" }]}
               >
                 <DatePicker
-                  classNames={{
-                    popup: {
-                      root: "mobile-center-picker", // Thay cho dropdownClassName
-                    },
-                  }}
+                  classNames={{ popup: { root: "mobile-center-picker" } }}
                   className="w-full"
                   format="DD/MM/YYYY"
                   placeholder="Chọn ngày"
@@ -907,7 +882,7 @@ export const VehicleFormFields = ({
         </Col>
       </Row>
 
-      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU --- */}
+      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU (ĐÃ THAY THẾ CLOUDINARY) --- */}
       {!isBuyType && (
         <>
           <Divider className="!my-8">
@@ -935,16 +910,11 @@ export const VehicleFormFields = ({
                   valuePropName="fileList"
                   getValueFromEvent={normFile}
                   rules={[
-                    {
-                      required:
-                        !isBuyType && inspectStatus === "INSPECTED"
-                          ? true
-                          : false,
-                    },
+                    { required: !isBuyType && inspectStatus === "INSPECTED" },
                   ]}
                 >
                   <Upload
-                    customRequest={handleCloudinaryUpload}
+                    customRequest={handleBase64Upload} // 🚀 Hàm mới đổi sang Base64
                     listType="picture-card"
                     multiple
                     accept="image/*"
@@ -973,18 +943,14 @@ export const VehicleFormFields = ({
                   valuePropName="fileList"
                   getValueFromEvent={normFile}
                   rules={[
-                    {
-                      required:
-                        !isBuyType && inspectStatus === "INSPECTED"
-                          ? true
-                          : false,
-                    },
+                    { required: !isBuyType && inspectStatus === "INSPECTED" },
                   ]}
                 >
                   <Upload
-                    customRequest={handleCloudinaryUpload}
+                    customRequest={handleBase64Upload} // 🚀 Hàm mới đổi sang Base64
                     listType="picture"
                     multiple
+                    accept="image/*,application/pdf" // Chấp nhận cả ảnh và PDF
                   >
                     <Button
                       icon={<PlusOutlined />}

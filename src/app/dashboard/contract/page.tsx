@@ -71,31 +71,19 @@ export default function ContractPage() {
     }
   }, [filters]);
 
-  const uploadToCloudinary = async (file: File) => {
-    const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const UPLOAD_PRESET = "used_car"; // Tên preset bạn đang dùng
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", UPLOAD_PRESET);
-    formData.append("folder", "used_car_contracts");
-
-    // RẤT QUAN TRỌNG: Ép kiểu 'image' để Cloudinary cho phép render PDF trực tuyến
-    // và tạo link có dạng /image/upload/...
-    const resourceType = "image";
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      { method: "POST", body: formData },
-    );
-
-    return await res.json();
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleFileUpload = async (file: File) => {
     if (!selectedContract) return;
 
-    // 1. Kiểm tra định dạng (Hợp đồng thường là PDF hoặc Ảnh scan)
+    // 1. Kiểm tra định dạng (PDF hoặc Ảnh scan)
     const isDoc =
       file.type === "application/pdf" || file.type.startsWith("image/");
     if (!isDoc) {
@@ -105,32 +93,31 @@ export default function ContractPage() {
     setUploading(true);
 
     try {
-      // 2. Tải trực tiếp lên Cloudinary
-      const data = await uploadToCloudinary(file);
+      // 2. Chuyển file thành chuỗi Base64 (Chuỗi có dạng: data:application/pdf;base64,JVBERi0xLj...)
+      const base64String = await fileToBase64(file);
 
-      if (data.secure_url) {
-        // 3. Gọi Server Action để lưu URL vào Database
-        // Lưu ý: data.secure_url là link vĩnh viễn từ Cloudinary
-        await uploadContractFileAction(selectedContract.id, data.secure_url);
+      // 3. Gọi trực tiếp Server Action để lưu chuỗi này vào DB
+      const res = await uploadContractFileAction(
+        selectedContract.id,
+        base64String,
+      );
 
-        message.success("Bản scan đã được lưu trữ trên hệ thống");
+      if (res.success) {
+        message.success("Bản scan đã được lưu trực tiếp vào cơ sở dữ liệu!");
 
-        // 4. Refresh dữ liệu Modal
+        // 4. Refresh dữ liệu giao diện
         const updatedDetail = await getContractDetailAction(
           selectedContract.id,
         );
         setSelectedContract(updatedDetail);
 
-        // Load lại danh sách bên ngoài nếu cần
         if (typeof loadData === "function") loadData();
       } else {
-        throw new Error("Cloudinary response error");
+        throw new Error(res.error || "Lỗi lưu trữ DB");
       }
     } catch (error) {
       console.error("Upload Error:", error);
-      message.error(
-        "Không thể tải tệp lên Cloudinary. Vui lòng kiểm tra lại cấu hình.",
-      );
+      message.error("Không thể tải tệp lên. Vui lòng kiểm tra lại cấu hình.");
     } finally {
       setUploading(false);
     }

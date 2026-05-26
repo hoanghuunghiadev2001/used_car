@@ -162,11 +162,11 @@ model Customer {
 
   firstContactAt DateTime?
 
-  // --- GIỮ NGUYÊN CARMODEL CỦA BẠN ---
-  carModelId String?
+  // --- GIỮ NGUYÊN CARMODEL CỦA BẠN & ĐÃ SỬA ĐỒNG BỘ ID ---
+  carModelId String? // Cột ID thô để write trực tiếp chuỗi
   carModel   CarModel? @relation("InterestedModel", fields: [carModelId], references: [id])
 
-  tradeInModelId String?
+  tradeInModelId String? // Cột ID thô để write trực tiếp chuỗi
   tradeInModel   CarModel? @relation("TradeInModel", fields: [tradeInModelId], references: [id])
 
   licensePlate  String?
@@ -175,23 +175,22 @@ model Customer {
   budget        String?
   note          String? @db.Text
 
+  dateViewCar DateTime? // Ngày dự kiến xem xe (Dựa trên lịch hẹn của Sale hoặc khách tự khai báo)
+
   // --- THÔNG TIN GIÁM ĐỊNH (BỔ SUNG) ---
   inspectStatus   InspectStatus? @default(NOT_INSPECTED) // Tình trạng: Đã xem, Chưa xem, Hẹn xem
   inspectDate     DateTime? // Ngày hẹn xem xe
   inspectDoneDate DateTime? // Ngày thực tế đã xem xong
   inspectLocation String?
 
-  // Liên kết tài khoản nhân viên giám định
-  inspectorId  String?
+  // Liên kết tài khoản nhân viên giám định (ĐÃ THÊM CỘT ID THÔ)
+  inspectorId  String? // <--- Thêm cột này để lưu string từ form gửi lên
   inspectorRef User?   @relation("Inspector", fields: [inspectorId], references: [id])
 
-  // Lý do chưa xem xe (Liên kết với danh mục NotSeenCarModel Admin set)
-  notSeenReasonId  String?
+  // Lý do chưa xem xe (ĐÃ THÊM CỘT ID THÔ)
+  notSeenReasonId  String? // <--- Thêm cột này để lưu string từ form gửi lên
   notSeenReasonRef NotSeenCarModel? @relation("NotSeenReason", fields: [notSeenReasonId], references: [id])
   notSeenReason    String?          @db.Text // Ghi chú tay thêm nếu cần
-
-  // --- NHU CẦU MUA XE / LÝ DO BÁN XE (BỔ SUNG) ---
-  // Liên kết với danh mục reasonSellCar Admin set
 
   urgencyLevel      UrgencyType?
   lastContactAt     DateTime?
@@ -208,11 +207,11 @@ model Customer {
   ownerHistories CarOwnerHistory[]
   tasks          Task[]
 
-  // --- QUAN HỆ LÝ DO 
-  sellReasonId String?
+  // --- QUAN HỆ LÝ DO (ĐÃ THÊM ĐẦY ĐỦ CỘT ID THÔ) ---
+  sellReasonId String? // <--- Thêm cột này để không bị báo lỗi Unknown argument
   sellReason   SellReason? @relation("CustomerSellReason", fields: [sellReasonId], references: [id])
 
-  buyReasonId String?
+  buyReasonId String? // <--- Thêm cột này để không bị báo lỗi Unknown argument
   buyReason   BuyReason? @relation("CustomerBuyReason", fields: [buyReasonId], references: [id])
 
   createdAt DateTime @default(now())
@@ -225,7 +224,7 @@ model Customer {
 
   @@index([status])
   @@index([phone])
-  @@index([province]) // Thêm index này nếu bạn thường xuyên lọc khách hàng theo tỉnh thành
+  @@index([province])
   @@index([type])
 }
 
@@ -496,7 +495,7 @@ model Contract {
   paymentMethod String? // Chuyển khoản / Tiền mặt
 
   // File đính kèm (Lưu link Cloudinary/S3)
-  contractFile String?
+  contractFile String? @db.LongText
 
   signedAt  DateTime?
   expiredAt DateTime?

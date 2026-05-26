@@ -301,7 +301,13 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
           phone,
           urgencyLevel,
           status,
-          carModelId: restValues.carModelId,
+          carModel: restValues.carModelId
+            ? {
+                connect: { id: restValues.carModelId },
+              }
+            : {
+                disconnect: true, // Hoặc undefined nếu không muốn thay đổi gì khi không truyền id
+              },
           // Giám định
           inspectStatus,
           inspectorId,
@@ -309,6 +315,9 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
           inspectDoneDate: inspectDoneDate ? new Date(inspectDoneDate) : null,
           // Lý do liên kết
           notSeenReasonId,
+          dateViewCar: restValues.dateViewCar
+            ? new Date(restValues.dateViewCar)
+            : null,
           buyReasonId,
           sellReasonId,
           notSeenReason, // Ghi chú thêm

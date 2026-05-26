@@ -83,7 +83,7 @@ export default function ModalDetailCustomer({
       setFullDetail(res);
 
       customerData = res || customerData; // Cập nhật lại customerData với dữ liệu mới
-
+      console.log("Fetched Lead Detail:", res);
       if (res) {
         // Fill dữ liệu vào Form
         const formValues = {
@@ -92,6 +92,7 @@ export default function ModalDetailCustomer({
           inspectDoneDate: res.inspectDoneDate
             ? dayjs(res.inspectDoneDate)
             : null,
+          dateViewCar: res.dateViewCar ? dayjs(res.dateViewCar) : null,
           inspectDate: res.inspectDate ? dayjs(res.inspectDate) : null,
           registrationDeadline: res.leadCar?.registrationDeadline
             ? dayjs(res.leadCar.registrationDeadline)
@@ -172,6 +173,7 @@ export default function ModalDetailCustomer({
         insuranceDeadline: values.insuranceDeadline?.toISOString() || null,
         documents: documentUrls,
         carImages: carImageUrls,
+        dateViewCar: values.dateViewCar?.toISOString() || null,
       };
 
       const res = await updateFullLeadDetail(customerData.id, cleanedValues);

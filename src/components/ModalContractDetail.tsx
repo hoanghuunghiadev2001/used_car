@@ -22,6 +22,7 @@ import {
   Badge,
   Card,
   Statistic,
+  message,
 } from "antd";
 import {
   UserOutlined,
@@ -100,6 +101,101 @@ export default function ModalContractDetail({
     // Thêm flags fl_attachment để ép tải về
     const baseUrl = url.replace("/upload/", "/upload/fl_attachment/");
     return baseUrl;
+  };
+
+  // 1. Hàm tự động kiểm tra loại file từ chuỗi Base64 (Mặc định là pdf nếu không tìm thấy)
+  const getMimeTypeFromBase64 = (base64String: string): string => {
+    if (base64String.startsWith("data:")) {
+      const match = base64String.match(/data:([^;]+);base64,/);
+      if (match && match[1]) return match[1];
+    }
+    // Nếu chuỗi thô không có prefix, kiểm tra ký tự đầu để đoán
+    const firstChar = base64String.charAt(0);
+    if (firstChar === "/" || firstChar === "i") return "image/jpeg"; // JPEG hoặc PNG
+    if (firstChar === "R") return "application/pdf"; // PDF bắt đầu bằng %PDF (Base64 là JVBERi... hoặc R...)
+    return "application/pdf";
+  };
+
+  // 2. Hàm chuyển đổi Base64 thành Blob (Giữ nguyên định dạng gốc)
+  const base64ToBlob = (
+    base64Data: string,
+    defaultContentType = "application/pdf",
+  ) => {
+    const contentType = getMimeTypeFromBase64(base64Data);
+    const block = base64Data.split(";base64,");
+    const realData = block.length > 1 ? block[1] : block[0];
+
+    const sliceSize = 512;
+    const byteCharacters = atob(realData);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      const slice = byteCharacters.slice(offset, offset + sliceSize);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+
+    return new Blob(byteArrays, { type: contentType });
+  };
+
+  // 🚀 Hàm XEM FILE (Xem được cả Ảnh lẫn PDF trên tab mới)
+  const handlePreviewBase64 = (base64String: string) => {
+    if (!base64String) return;
+    try {
+      const blob = base64ToBlob(base64String);
+      const fileURL = URL.createObjectURL(blob);
+
+      // Nếu là hình ảnh, ta mở trực tiếp hoặc tạo cấu trúc xem ảnh để không bị lỗi màn hình trắng
+      const mimeType = blob.type;
+      if (mimeType.startsWith("image/")) {
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(
+            `<style>body{margin:0;background:#0e0e0e;display:flex;justify-content:center;align-items:center;height:100vh;} img{max-width:100%;max-height:100%;object-fit:contain;}</style>
+           <img src="${fileURL}" alt="Hợp đồng dạng ảnh"/>`,
+          );
+          newWindow.document.title = `Xem hợp đồng ${data.contractNumber || ""}`;
+        }
+      } else {
+        // Nếu là PDF thì mở tab mặc định của trình duyệt
+        window.open(fileURL, "_blank");
+      }
+    } catch (error) {
+      console.error("Lỗi preview file:", error);
+      message.error("Không thể hiển thị bản xem trước.");
+    }
+  };
+
+  // 🚀 Hàm TẢI FILE về máy (Tự động nhận diện đuôi file .jpg, .png, hoặc .pdf)
+  const handleDownloadBase64 = (base64String: string) => {
+    if (!base64String) return;
+    try {
+      const blob = base64ToBlob(base64String);
+      const fileURL = URL.createObjectURL(blob);
+
+      // Xác định đuôi file mở rộng (extension) dựa trên MIME type
+      let extension = "pdf";
+      if (blob.type === "image/jpeg" || blob.type === "image/jpg")
+        extension = "jpg";
+      if (blob.type === "image/png") extension = "png";
+
+      const link = document.createElement("a");
+      link.href = fileURL;
+      link.download = `${data.contractNumber || "HopDong"}.${extension}`;
+
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      URL.revokeObjectURL(fileURL);
+    } catch (error) {
+      console.error("Lỗi tải file:", error);
+      message.error("Gặp lỗi trong quá trình tải tệp tin.");
+    }
   };
   return (
     <Modal
@@ -498,13 +594,14 @@ export default function ModalContractDetail({
             </Card>
 
             {/* 7. QUẢN LÝ TẬP TIN HỢP ĐỒNG */}
+            {/* 7. QUẢN LÝ TẬP TIN HỢP ĐỒNG */}
             <Card
               className="rounded-[2.5rem] border-slate-200 shadow-sm bg-slate-50 border-2 border-dashed mt-4!"
               title={
                 <Space>
                   <FilePdfOutlined className="text-rose-500!" />{" "}
                   <Text strong className="uppercase text-xs text-slate-500!">
-                    Hợp đồng điện tử (Scan)
+                    Hợp đồng điện tử (Base64)
                   </Text>
                 </Space>
               }
@@ -512,23 +609,23 @@ export default function ModalContractDetail({
               <div className="flex flex-col items-center py-2 text-center">
                 {data.contractFile ? (
                   <div className="flex gap-2 justify-center mb-6">
+                    {/* NÚT XEM FILE TRỰC TIẾP */}
                     <Button
                       size="large"
                       icon={<EyeOutlined />}
                       className="rounded-xl font-bold border-slate-200"
-                      href={getContractDisplayUrl(data.contractFile)}
-                      target="_blank" // Mở tab mới để render PDF
+                      onClick={() => handlePreviewBase64(data.contractFile)}
                     >
                       XEM FILE
                     </Button>
 
+                    {/* NÚT TẢI FILE VỀ MÁY */}
                     <Button
                       size="large"
                       type="primary"
                       icon={<DownloadOutlined />}
                       className="rounded-xl font-bold bg-indigo-600 border-none shadow-md"
-                      href={getContractDownloadUrl(data.contractFile)}
-                      download={`${data.contractNumber}.pdf`} // Gợi ý tên file khi tải
+                      onClick={() => handleDownloadBase64(data.contractFile)}
                     >
                       TẢI VỀ
                     </Button>

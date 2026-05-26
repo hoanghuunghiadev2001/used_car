@@ -236,21 +236,43 @@ export async function completeContractAction(contractId: string) {
 // Cập nhật file hợp đồng
 export async function uploadContractFileAction(
   contractId: string,
-  fileUrl: string,
+  base64Data: string,
 ) {
   try {
     const auth = await getCurrentUser();
     if (!auth) throw new Error("Chưa đăng nhập");
 
+    if (!base64Data) {
+      return { success: false, error: "Dữ liệu tệp trống" };
+    }
+
+    // 1. Kiểm tra dung lượng chuỗi Base64 để tránh lỗi quá tải Vercel Serverless (Max 4.5MB)
+    // Công thức tính xấp xỉ dung lượng thực tế từ độ dài chuỗi Base64
+    const sizeInBytes = (base64Data.length * 3) / 4;
+    const maxAllowedSize = 4.5 * 1024 * 1024; // 4.5 Megabytes
+
+    if (sizeInBytes > maxAllowedSize) {
+      return {
+        success: false,
+        error:
+          "Dung lượng file quá lớn. Vui lòng nén file hoặc chọn file < 3MB để tránh quá tải server Vercel.",
+      };
+    }
+
+    // 2. Tiến hành update trực tiếp chuỗi Base64 vào DB bằng Prisma
     await db.contract.update({
       where: { id: contractId },
-      data: { contractFile: fileUrl },
+      data: { contractFile: base64Data },
     });
 
     revalidatePath("/dashboard/contracts");
     return { success: true };
-  } catch (error) {
-    return { success: false, error: "Không thể lưu file" };
+  } catch (error: any) {
+    console.error("Lỗi khi lưu Base64 vào DB:", error);
+    return {
+      success: false,
+      error: error.message || "Không thể lưu file vào cơ sở dữ liệu",
+    };
   }
 }
 
