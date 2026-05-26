@@ -732,7 +732,7 @@ export const VehicleFormFields = ({
       </Divider>
 
       <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12}>
           <Form.Item name="expectedPrice" label="Giá khách mong muốn">
             <InputNumber
               className="w-full! border-emerald-200"
@@ -743,7 +743,7 @@ export const VehicleFormFields = ({
             />
           </Form.Item>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12}>
           <Form.Item name="tSurePrice" label="Định giá T-Sure dự kiến">
             <InputNumber
               className="w-full! border-indigo-200 bg-indigo-50/30"
@@ -754,22 +754,24 @@ export const VehicleFormFields = ({
             />
           </Form.Item>
         </Col>
-        <Col xs={24} md={8}>
-          <Form.Item
-            name="ownerType"
-            label="Hình thức sở hữu"
-            rules={[{ required: !isBuyType }]}
-          >
-            <Select
-              options={[
-                { label: "Chính chủ", value: "PERSONAL" },
-                { label: "Ủy quyền L1", value: "AUTHORIZATION_L1" },
-                { label: "Ủy quyền L2", value: "AUTHORIZATION_L2" },
-                { label: "Công ty / VAT", value: "COMPANY_VAT" },
-              ]}
-            />
-          </Form.Item>
-        </Col>
+        {!isBuyType && (
+          <Col xs={24} md={8}>
+            <Form.Item
+              name="ownerType"
+              label="Hình thức sở hữu"
+              rules={[{ required: !isBuyType }]}
+            >
+              <Select
+                options={[
+                  { label: "Chính chủ", value: "PERSONAL" },
+                  { label: "Ủy quyền L1", value: "AUTHORIZATION_L1" },
+                  { label: "Ủy quyền L2", value: "AUTHORIZATION_L2" },
+                  { label: "Công ty / VAT", value: "COMPANY_VAT" },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+        )}
 
         <Col xs={12} md={8}>
           <Form.Item
