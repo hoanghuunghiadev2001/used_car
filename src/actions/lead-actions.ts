@@ -301,26 +301,51 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
           phone,
           urgencyLevel,
           status,
+
+          // 1. Chuẩn hóa Car Model (Giữ nguyên logic chuẩn cũ của bạn)
           carModel: restValues.carModelId
-            ? {
-                connect: { id: restValues.carModelId },
-              }
-            : {
-                disconnect: true, // Hoặc undefined nếu không muốn thay đổi gì khi không truyền id
-              },
-          // Giám định
+            ? { connect: { id: restValues.carModelId } }
+            : restValues.carModelId === null
+              ? { disconnect: true }
+              : undefined,
+
+          // 2. Chuẩn hóa Buy Reason (Giải quyết triệt để lỗi buyReasonId: null)
+          buyReason: buyReasonId
+            ? { connect: { id: buyReasonId } }
+            : buyReasonId === null
+              ? { disconnect: true }
+              : undefined,
+
+          // 3. Chuẩn hóa Sell Reason
+          sellReason: sellReasonId
+            ? { connect: { id: sellReasonId } }
+            : sellReasonId === null
+              ? { disconnect: true }
+              : undefined,
+
+          // 4. Chuẩn hóa Inspector (Nhân viên giám định)
+          inspectorRef: inspectorId
+            ? { connect: { id: inspectorId } }
+            : inspectorId === null
+              ? { disconnect: true }
+              : undefined,
+
+          // 5. Chuẩn hóa Not Seen Reason (Lý do chưa xem xe)
+          notSeenReasonRef: notSeenReasonId
+            ? { connect: { id: notSeenReasonId } }
+            : notSeenReasonId === null
+              ? { disconnect: true }
+              : undefined,
+
+          // Các thông tin trường thường
           inspectStatus,
-          inspectorId,
           inspectLocation,
           inspectDoneDate: inspectDoneDate ? new Date(inspectDoneDate) : null,
-          // Lý do liên kết
-          notSeenReasonId,
+          notSeenReason,
           dateViewCar: restValues.dateViewCar
             ? new Date(restValues.dateViewCar)
             : null,
-          buyReasonId,
-          sellReasonId,
-          notSeenReason, // Ghi chú thêm
+
           carImages: restValues.carImages || [],
           documents: restValues.documents || [],
           address: restValues.address || null,
@@ -392,7 +417,7 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
         },
       });
 
-      // 4. Tạo Activity Log (Nhật ký hoạt động)
+      // 4. Tạo Activity Log
       await tx.leadActivity.create({
         data: {
           customerId: customerId,
