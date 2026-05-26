@@ -267,7 +267,6 @@ export async function updateLeadDetailAction(customerId: string, values: any) {
     return { success: false, error: error.message };
   }
 }
-
 export async function updateFullLeadDetail(customerId: string, values: any) {
   try {
     const auth = await getCurrentUser();
@@ -302,14 +301,14 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
           urgencyLevel,
           status,
 
-          // 1. Chuẩn hóa Car Model (Giữ nguyên logic chuẩn cũ của bạn)
+          // 1. Chuẩn hóa Car Model
           carModel: restValues.carModelId
             ? { connect: { id: restValues.carModelId } }
             : restValues.carModelId === null
               ? { disconnect: true }
               : undefined,
 
-          // 2. Chuẩn hóa Buy Reason (Giải quyết triệt để lỗi buyReasonId: null)
+          // 2. Chuẩn hóa Buy Reason
           buyReason: buyReasonId
             ? { connect: { id: buyReasonId } }
             : buyReasonId === null
@@ -401,7 +400,8 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
         insuranceDSCorp: restValues.insuranceDSCorp || null,
         insuranceVCCorp: restValues.insuranceVCCorp || null,
         conditionGrade: restValues.conditionGrade || null,
-        isCertified: restValues.isCertified || false,
+        isCertified:
+          restValues.isCertified === true || restValues.isCertified === "true",
         certificationNote: restValues.certificationNote || null,
         ownerType: restValues.ownerType || null,
         origin: restValues.origin || null,
@@ -417,13 +417,23 @@ export async function updateFullLeadDetail(customerId: string, values: any) {
         },
       });
 
-      // 4. Tạo Activity Log
+      // 4. Tạo Activity Log với ghi chú trạng thái đạt chuẩn/không đạt chuẩn xe cũ
+      const checkCertified =
+        restValues.isCertified !== undefined &&
+        restValues.isCertified !== null &&
+        restValues.isCertified !== "null";
+      const certifiedStatus = checkCertified
+        ? restValues.isCertified === true || restValues.isCertified === "true"
+          ? "XE ĐẠT CHUẨN"
+          : "XE KHÔNG ĐẠT"
+        : "CHƯA XÁC ĐỊNH";
+
       await tx.leadActivity.create({
         data: {
           customerId: customerId,
           createdById: auth.id,
           status: status || updatedCustomer.status,
-          note: `[CẬP NHẬT HỒ SƠ]: Cập nhật thông tin kỹ thuật xe và trạng thái giám định (${inspectStatus}).`,
+          note: `[CẬP NHẬT HỒ SƠ]: Cập nhật thông tin kỹ thuật xe và trạng thái giám định: ${certifiedStatus}.`,
         },
       });
     });
