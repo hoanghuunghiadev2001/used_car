@@ -406,6 +406,9 @@ model LeadActivity {
   createdById String
   user        User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([createdById]) // Tiện thể thêm index cho user tạo để sau này chạy báo cáo năng suất sale không bị chậm
 }
 
 model LeadReason {
@@ -473,6 +476,9 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([customerId, scheduledAt])
+  @@index([assigneeId, status])
 }
 
 model Contract {
@@ -503,6 +509,9 @@ model Contract {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([staffId, status])
+  @@index([customerId])
 }
 
 // ==========================================
