@@ -1334,6 +1334,8 @@ export async function getDetailedPerformance(period: "day" | "month" | "year") {
   }
 }
 
+// src/actions/report-actions.ts
+
 export async function getAdvancedStaffReport(filters: {
   period: "day" | "month" | "year" | "custom";
   startDate?: Date;
@@ -1356,7 +1358,7 @@ export async function getAdvancedStaffReport(filters: {
       end = dayjs(filters.endDate).endOf("day").toDate();
     }
 
-    // 2. Fetch dữ liệu khách hàng chính
+    // 2. Fetch dữ liệu khách hàng chính (Đã XÓA orderBy để cứu RAM MySQL)
     const customers = await db.customer.findMany({
       where: {
         assignedToId: myId,
@@ -1365,9 +1367,9 @@ export async function getAdvancedStaffReport(filters: {
       },
       include: {
         carModel: true,
-        leadCar: true, // Vẫn lấy để hiển thị thông tin xe nhưng không tính doanh thu
+        leadCar: true,
       },
-      orderBy: { createdAt: "desc" },
+      // ❌ XÓA DÒNG orderBy: { createdAt: "desc" } Ở ĐÂY
     });
 
     // 3. Phân tích Phễu Khách Hàng (Tập trung vào Volume)
@@ -1391,9 +1393,9 @@ export async function getAdvancedStaffReport(filters: {
       late: customers.filter((c) => c.isLate).length,
     };
 
-    // 5. Thống kê theo nguồn khách (Source) thay cho tài chính
+    // 5. Thống kê theo nguồn khách (Source)
     const sourceStats = customers.reduce((acc: any, curr) => {
-      const source = curr.type || "Chưa phân loại"; // type: FACEBOOK, ZALO, SHOWROOM...
+      const source = curr.type || "Chưa phân loại";
       acc[source] = (acc[source] || 0) + 1;
       return acc;
     }, {});
@@ -1430,7 +1432,13 @@ export async function getAdvancedStaffReport(filters: {
       }),
     );
 
-    // Chuẩn bị object report cuối cùng (Không còn Decimal từ tài chính)
+    // 🔥 Tối ưu bằng JS: Sắp xếp mảng khách hàng trực tiếp trên RAM của Node.js
+    const sortedCustomersForTable = [...customers].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    // Chuẩn bị object report cuối cùng
     const reportData = {
       funnel,
       leadQuality,
@@ -1440,7 +1448,7 @@ export async function getAdvancedStaffReport(filters: {
       })),
       taskStats,
       trend: trendData.reverse(),
-      rawLeads: customers.slice(0, 50), // Trả về danh sách để hiển thị table
+      rawLeads: sortedCustomersForTable.slice(0, 50), // Lấy 50 khách mới nhất sau khi sort bằng JS
     };
 
     return {
