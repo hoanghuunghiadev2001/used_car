@@ -14,9 +14,9 @@ export async function getExportCustomerData(
   const user = await getCurrentUser();
   if (!user) throw new Error("Unauthorized");
 
-  // 1. Lấy cấu hình LeadSetting (Dùng để so sánh ngày HOT/WARM và độ trễ xử lý)
+  // 1. Lấy cấu hình LeadSetting
   const leadConfig = await db.leadSetting.findFirst({
-    where: { id: "lead_config" }, // Theo ID default trong schema của bạn
+    where: { id: "lead_config" },
   });
 
   // 2. Thiết lập điều kiện lọc (Where Clause)
@@ -40,14 +40,13 @@ export async function getExportCustomerData(
     whereClause.branchId = branchId;
   }
 
-  // 3. Truy vấn dữ liệu với đầy đủ các quan hệ
+  // 3. Truy vấn dữ liệu (Bỏ hoàn toàn orderBy tầng DB để cứu RAM sort_buffer_size)
   const customers = await db.customer.findMany({
     where: whereClause,
     include: {
       branch: { select: { name: true } },
       assignedTo: { select: { fullName: true } },
       inspectorRef: { select: { fullName: true } },
-
       referrer: {
         select: {
           fullName: true,
@@ -68,48 +67,50 @@ export async function getExportCustomerData(
           color: true,
         },
       },
-
       contracts: { select: { id: true } },
       tasks: {
         where: { status: "PENDING" },
-        orderBy: { deadlineAt: "asc" },
-        take: 1,
+        // ❌ Đã xóa orderBy tầng DB
       },
       activities: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
+        // ❌ Đã xóa orderBy tầng DB
         include: {
           user: { select: { fullName: true } },
-          reason: { select: { content: true } }, // Quan trọng: Lấy nội dung lý do từ LeadReason
+          reason: { select: { content: true } },
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    // ❌ Đã xóa orderBy ở bảng cha Customer
   });
 
-  // 4. Transform dữ liệu & Xử lý Logic nghiệp vụ
+  // 4. Transform dữ liệu & Tự Sắp xếp bằng JavaScript (Tầng Node.js)
   const serializedData = customers.map((customer) => {
-    const latestActivity = customer.activities[0];
+    // Tự sắp xếp mảng phụ bằng JS thay vì bắt MySQL gồng gánh
+    const sortedActivities = [...customer.activities].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    const sortedTasks = [...customer.tasks].sort(
+      (a, b) =>
+        new Date(a.deadlineAt).getTime() - new Date(b.deadlineAt).getTime(),
+    );
+
+    const latestActivity = sortedActivities[0];
     const leadCar = customer.leadCar;
 
-    // Tìm lý do đóng băng (Tìm trong lịch sử bản ghi có trạng thái FROZEN)
-    const frozenActivity = customer.activities.find(
-      (a) => a.status === "FROZEN",
-    );
+    // Tìm lý do đóng băng
+    const frozenActivity = sortedActivities.find((a) => a.status === "FROZEN");
     const frozenReason =
       frozenActivity?.reason?.content || frozenActivity?.note || "N/A";
 
-    // Tìm lý do thất bại (Tìm trong lịch sử bản ghi có trạng thái LOSE hoặc CANCELLED)
-    const lostActivity = customer.activities.find(
+    // Tìm lý do thất bại
+    const lostActivity = sortedActivities.find(
       (a) => a.status === "LOSE" || a.status === "CANCELLED",
     );
     const lostReason =
       lostActivity?.reason?.content || lostActivity?.note || "N/A";
 
-    // --- LOGIC A: Xử lý TYPE (ReferralType) nếu NULL ---
-
     // --- LOGIC B: Kiểm tra liên hệ gần nhất & Độ trễ ---
-    // Lấy ngày liên hệ thực tế từ activity mới nhất hoặc trường lastContactAt
     const actualLastContactDate =
       latestActivity?.createdAt || customer.lastContactAt;
 
@@ -120,7 +121,6 @@ export async function getExportCustomerData(
       customer.assignedAt &&
       !customer.firstContactAt
     ) {
-      // Nếu đã bàn giao mà chưa liên hệ lần đầu, so sánh với maxLateMinutes
       const minutesSinceAssigned = dayjs().diff(
         dayjs(customer.assignedAt),
         "minute",
@@ -130,7 +130,7 @@ export async function getExportCustomerData(
       }
     }
 
-    // --- LOGIC C: Tính toán UrgencyLevel nếu NULL (Dựa trên LeadSetting) ---
+    // --- LOGIC C: Tính toán UrgencyLevel nếu NULL ---
     let calculatedUrgency = customer.urgencyLevel;
     if (!calculatedUrgency && leadConfig) {
       const daysOld = dayjs().diff(dayjs(customer.createdAt), "day");
@@ -141,7 +141,6 @@ export async function getExportCustomerData(
 
     return {
       ...customer,
-      // Ghi đè các giá trị đã qua tính toán
       frozenReason: customer.status === "FROZEN" ? frozenReason : "N/A",
       lostReason:
         customer.status === "LOSE" || customer.status === "CANCELLED"
@@ -150,7 +149,6 @@ export async function getExportCustomerData(
       urgencyLevel: calculatedUrgency,
       isLate: isCurrentlyLate,
 
-      // Dữ liệu bổ sung cho Excel Helper dễ đọc
       lastContactFormatted: actualLastContactDate
         ? dayjs(actualLastContactDate).format("DD/MM/YYYY HH:mm")
         : "Chưa liên hệ",
@@ -158,7 +156,7 @@ export async function getExportCustomerData(
         latestActivity?.note || customer.lastContactResult || "N/A",
       lastActivityStaff: latestActivity?.user?.fullName || "N/A",
       inspectDoneDate: customer?.inspectDoneDate,
-      // Xử lý Decimal cho LeadCar
+
       leadCar: leadCar
         ? {
             ...leadCar,
@@ -171,12 +169,14 @@ export async function getExportCustomerData(
           }
         : null,
 
-      // Task tiếp theo
-      nextAction: customer.tasks[0]
-        ? `${customer.tasks[0].title} (${dayjs(customer.tasks[0].scheduledAt).format("DD/MM")})`
+      nextAction: sortedTasks[0]
+        ? `${sortedTasks[0].title} (${dayjs(sortedTasks[0].scheduledAt).format("DD/MM")})`
         : "Không có lịch hẹn",
     };
   });
 
-  return serializedData;
+  // 🔥 Sắp xếp mảng trả về cuối cùng theo ngày tạo giảm dần (createdAt DESC) bằng JavaScript
+  return serializedData.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 }
