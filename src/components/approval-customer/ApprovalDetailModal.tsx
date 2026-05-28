@@ -37,6 +37,7 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Text } = Typography;
 
@@ -401,7 +402,7 @@ export default function ModalApprovalDetail({
                             {carImagesWatcher.map((img: string, i: number) => (
                               <Image
                                 key={i}
-                                src={img}
+                                src={getDisplayImageUrl(img)}
                                 height={80}
                                 className="rounded-lg object-cover border-2 border-white shadow-sm hover:scale-105 transition-transform"
                               />
@@ -432,7 +433,7 @@ export default function ModalApprovalDetail({
                                 className="flex flex-col items-center"
                               >
                                 <Image
-                                  src={doc}
+                                  src={getDisplayImageUrl(doc)}
                                   width={70}
                                   height={70}
                                   className="rounded border shadow-sm"

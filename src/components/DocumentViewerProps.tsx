@@ -65,7 +65,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = memo(({ files }) => {
                     loading="lazy"
                     width="100%"
                     height={80}
-                    src={url}
+                    src={getDisplayImageUrl(url, getFileName(url))}
                     preview={true} // Chỉ cho phép preview nếu là ảnh
                     className="object-cover transition-opacity duration-300"
                     // Hiển thị khung loading giả để mượt hơn khi scroll
@@ -104,5 +104,6 @@ const DocumentViewer: React.FC<DocumentViewerProps> = memo(({ files }) => {
 
 // Thêm icon để dùng trong placeholder
 import { PictureOutlined } from "@ant-design/icons";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 export default DocumentViewer;

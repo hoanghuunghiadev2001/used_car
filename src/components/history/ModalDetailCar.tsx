@@ -20,6 +20,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getCarStatusHelper } from "@/lib/urgencyBadge";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Title, Text } = Typography;
 
@@ -56,7 +57,7 @@ export default function ModalDetailCar({ open, onCancel, car }: any) {
                 {car.images.map((img: string, idx: number) => (
                   <Image
                     key={idx}
-                    src={img}
+                    src={getDisplayImageUrl(img)}
                     width={180}
                     height={120}
                     className="object-cover rounded-xl border border-slate-100 shadow-sm"

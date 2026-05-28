@@ -31,7 +31,7 @@ import {
   getContractsAction,
   completeContractAction,
   getContractDetailAction,
-  uploadContractFileAction,
+  uploadContractFileAction, // Vẫn dùng Action này nhưng tham số truyền vào giờ chỉ là ID Google Drive rất nhẹ
   getStaffForFilterAction,
 } from "@/actions/contract-actions";
 import ModalContractDetail from "@/components/ModalContractDetail";
@@ -71,15 +71,7 @@ export default function ContractPage() {
     }
   }, [filters]);
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
+  // 🚀 LUỒNG MỚI: BỎ BASE64, UPLOAD THẲNG FILE VẬT LÝ LÊN GOOGLE DRIVE
   const handleFileUpload = async (file: File) => {
     if (!selectedContract) return;
 
@@ -90,22 +82,51 @@ export default function ContractPage() {
       return message.error("Chỉ chấp nhận tệp PDF hoặc hình ảnh scan");
     }
 
+    // Giới hạn dung lượng dưới 10MB theo cấu hình Route Drive API
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      return message.error("Hồ sơ hợp đồng vượt quá giới hạn 10MB!");
+    }
+
     setUploading(true);
 
     try {
-      // 2. Chuyển file thành chuỗi Base64 (Chuỗi có dạng: data:application/pdf;base64,JVBERi0xLj...)
-      const base64String = await fileToBase64(file);
+      // 2. Tạo FormData đóng gói file vật lý
+      const formData = new FormData();
+      formData.append("file", file);
 
-      // 3. Gọi trực tiếp Server Action để lưu chuỗi này vào DB
+      // 3. Đẩy file lên API Endpoint tích hợp OAuth2 Google Drive
+      const response = await fetch("/api/uploadFile", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Lỗi tương tác hạ tầng Google Drive API.");
+      }
+
+      const data = await response.json();
+
+      // Lấy chuỗi ID gọn nhẹ trả về từ Google Drive (Ví dụ: 1TjPkbpE7LlH8...)
+      const googleDriveId = data.fileId;
+
+      if (!googleDriveId) {
+        throw new Error("Không nhận được định danh FileId từ Google.");
+      }
+
+      // 4. Gọi Server Action để lưu đúng chuỗi ID (hoặc link xem nếu DB cũ thiết kế dạng chuỗi URL) vào Database
+      // Khuyên dùng: Lưu nguyên cái googleDriveId vào cột trường dữ liệu này
       const res = await uploadContractFileAction(
         selectedContract.id,
-        base64String,
+        googleDriveId, // <-- Database bây giờ lưu chuỗi ID siêu nhẹ, không lưu text base64 cồng kềnh nữa
       );
 
       if (res.success) {
-        message.success("Bản scan đã được lưu trực tiếp vào cơ sở dữ liệu!");
+        message.success(
+          "Bản scan đã được đồng bộ lên Google Drive doanh nghiệp!",
+        );
 
-        // 4. Refresh dữ liệu giao diện
+        // 5. Refresh lại giao diện chi tiết hồ sơ hợp đồng
         const updatedDetail = await getContractDetailAction(
           selectedContract.id,
         );
@@ -113,11 +134,14 @@ export default function ContractPage() {
 
         if (typeof loadData === "function") loadData();
       } else {
-        throw new Error(res.error || "Lỗi lưu trữ DB");
+        throw new Error(res.error || "Lỗi lưu trữ thông tin vào DB");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload Error:", error);
-      message.error("Không thể tải tệp lên. Vui lòng kiểm tra lại cấu hình.");
+      message.error(
+        error.message ||
+          "Không thể tải tệp lên. Vui lòng kiểm tra lại hệ thống.",
+      );
     } finally {
       setUploading(false);
     }

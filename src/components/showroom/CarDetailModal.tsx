@@ -31,6 +31,7 @@ import {
   PlayCircleOutlined,
   CarryOutOutlined,
 } from "@ant-design/icons";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -79,7 +80,7 @@ export default function CarDetailModal({
               <div className="flex h-full w-full">
                 <div className="w-2/3 h-full p-1">
                   <Image
-                    src={car.images[0]}
+                    src={getDisplayImageUrl(car.images[0])}
                     className="object-cover w-full! h-full rounded-l-lg"
                     alt="Main"
                     style={{ height: "192px", width: "100%" }}
@@ -93,7 +94,7 @@ export default function CarDetailModal({
                         className={`${i > 1 ? "hidden! " : i} h-1/2 w-full  `}
                       >
                         <Image
-                          src={img}
+                          src={getDisplayImageUrl(img)}
                           className="object-cover w-full! h-full! rounded-r-lg"
                         />
                       </div>

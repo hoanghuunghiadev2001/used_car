@@ -31,6 +31,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "@/lib/dayjs";
 import DocumentViewer from "../DocumentViewerProps";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 const { Text } = Typography;
 
 interface ModalApproveTransactionProps {
@@ -576,7 +577,7 @@ export default function ModalApproveTransaction({
                               width="100%"
                               height={100}
                               className="rounded-lg object-cover shadow-sm border-2 border-white hover:scale-105 transition-transform"
-                              src={file.url}
+                              src={getDisplayImageUrl(file.url)}
                               fallback="/img/no-image.png"
                             />
                           ))}

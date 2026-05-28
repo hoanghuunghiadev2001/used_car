@@ -32,6 +32,7 @@ import {
   InfoCircleOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Text } = Typography;
 
@@ -184,14 +185,19 @@ export const VehicleFormFields = ({
     return (
       e?.fileList?.map((file: any) => {
         if (file.response && file.response.url) {
+          const fileIdentifier = file.response.url; // ID Drive hoặc Link Cloudinary
           return {
             uid: file.uid,
             name: file.name,
             status: "done",
             url: file.response.url, // Ép URL này vào data form chính
+            thumbUrl: getDisplayImageUrl(fileIdentifier, file.name),
           };
         }
-        return file;
+        return {
+          ...file,
+          thumbUrl: getDisplayImageUrl(file.url, file.name),
+        };
       }) || []
     );
   };

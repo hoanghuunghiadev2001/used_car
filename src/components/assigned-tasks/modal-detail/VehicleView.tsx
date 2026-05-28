@@ -32,6 +32,7 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import dayjs from "@/lib/dayjs";
+import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Title, Text, Paragraph } = Typography;
 const DocumentItem = memo(({ doc, idx }: { doc: any; idx: number }) => {
@@ -48,7 +49,7 @@ const DocumentItem = memo(({ doc, idx }: { doc: any; idx: number }) => {
           <div className="w-10 h-10 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
             {isImage ? (
               <Image
-                src={url}
+                src={getDisplayImageUrl(url)}
                 preview={true}
                 loading="lazy"
                 className="object-cover w-full! h-full!"
@@ -85,7 +86,7 @@ const CarImageItem = memo(({ src, idx }: { src: string; idx: number }) => (
   <Col xs={8} sm={6} md={4} lg={3}>
     <div className="relative aspect-square overflow-hidden rounded-2xl border-2 border-white shadow-sm hover:shadow-md transition-all hover:scale-105 z-10 bg-slate-200">
       <Image
-        src={src}
+        src={getDisplayImageUrl(src)}
         alt={`car-${idx}`}
         loading="lazy" // Quan trọng để hết lag khi scroll
         className="object-cover w-full! h-full!"
@@ -331,7 +332,7 @@ export const VehicleView = ({ lc, carModels, customerData }: any) => {
                   {carImages.map((img: any, idx: number) => (
                     <CarImageItem
                       key={idx}
-                      src={img.url || img.secure_url || img}
+                      src={getDisplayImageUrl(img.url || img.secure_url || img)}
                       idx={idx}
                     />
                   ))}
