@@ -4,7 +4,7 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 import path from "path";
 
-// Hàm xóa dấu tiếng Việt và ký tự đặc biệt để tên file sạch, không lỗi hiển thị
+// Hàm xóa dấu tiếng Việt và ký tự đặc biệt để tên file không bị lỗi hiển thị
 function removeVietnameseTones(str: string) {
   str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   str = str.replace(/[đĐ]/g, "d");
@@ -49,40 +49,52 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // 3. Chuẩn hóa tên file để lưu trữ an toàn
+    // 3. Chuẩn hóa tên file sạch để lưu trữ
     const baseName = path.basename(file.name, ext);
     const safeFileName = `${Date.now()}-${removeVietnameseTones(baseName)}${ext}`;
 
-    // 4. LÀM SẠCH BIẾN MÔI TRƯỜNG FOLDER ID (Tránh dính ký tự ẩn ẩn từ Windows Server)
+    // 4. BẪY DEBUG & LÀM SẠCH BIẾN MÔI TRƯỜNG
     const rawFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+    console.log("\n====== 🛡️ GOOGLE DRIVE SYSTEM DEBUG ======");
+    console.log(
+      "-> Độ dài ID nhận được:",
+      rawFolderId ? rawFolderId.length : 0,
+      "ký tự",
+    );
+    console.log("-> Cấu trúc JSON của ID:", JSON.stringify(rawFolderId));
+    console.log(
+      "-> Email Service Account đang chạy:",
+      process.env.GOOGLE_CLIENT_EMAIL,
+    );
+    console.log("===========================================\n");
+
+    // Xử lý khoảng trắng, tab, xuống dòng phát sinh từ môi trường Windows Server
     const cleanFolderId = rawFolderId
       ? rawFolderId.replace(/[\r\n\t]/g, "").trim()
       : "";
 
     if (!cleanFolderId) {
-      throw new Error("GOOGLE_DRIVE_FOLDER_ID trong file .env bị rỗng.");
+      throw new Error("GOOGLE_DRIVE_FOLDER_ID bị rỗng hoặc không hợp lệ.");
     }
 
-    // 5. CẤU HÌNH XÁC THỰC OAUTH2 ĐỂ SỬ DỤNG QUOTA CỦA USER MÌNH
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-    );
+    // Thay thế ký tự xuống dòng tránh lỗi định dạng chuỗi từ biến môi trường
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
-    // Truyền mã Refresh Token vĩnh viễn đã lấy từ Playground vào đây
-    oauth2Client.setCredentials({
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    const auth = new google.auth.JWT({
+      email: process.env.GOOGLE_CLIENT_EMAIL,
+      key: privateKey,
+      scopes: ["https://www.googleapis.com/auth/drive"],
     });
 
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const drive = google.drive({ version: "v3", auth });
 
-    // 6. Biến đổi Buffer thành luồng đọc (Readable Stream) chuẩn hóa cho Drive API
+    // 5. Biến đổi Buffer thành luồng đọc (Readable Stream) phù hợp với Drive API
     const bufferStream = new Readable();
     bufferStream.push(buffer);
-    bufferStream.push(null); // Đóng luồng dữ liệu
+    bufferStream.push(null);
 
-    // 7. Thực hiện đẩy file thẳng lên Google Drive
-    // Do chạy bằng OAuth2 chính chủ nên không cần gán 'supportsAllDrives' hay 'transferOwnership' phức tạp nữa
+    // 6. Đẩy file lên Google Drive dưới quyền tạm thời của Bot
     const driveResponse = await drive.files.create({
       requestBody: {
         name: safeFileName,
@@ -92,20 +104,49 @@ export async function POST(req: NextRequest) {
         mimeType: file.type,
         body: bufferStream,
       },
+      supportsAllDrives: true,
       fields: "id, webViewLink, webContentLink",
-    });
+    } as any);
 
     const driveFile = driveResponse.data;
+
+    // 7. 🔥 CHUYỂN GIAO QUYỀN SỞ HỮU ĐỂ SỬ DỤNG QUOTA CỦA USER MÌNH
+    // Con bot sau khi tạo xong file sẽ chuyển 'owner' sang cho email doanh nghiệp của bạn.
+    // Việc này đẩy quota tính dung lượng file từ Bot (0MB) sang tài khoản của bạn.
+    if (driveFile.id) {
+      try {
+        await drive.permissions.create({
+          fileId: driveFile.id,
+          requestBody: {
+            type: "user",
+            role: "owner", // Đặt làm chủ sở hữu file
+            emailAddress: "nghia.hh@toyotabinhduong.com.vn", // Chính xác email nhận chủ quyền trong ảnh
+          },
+          transferOwnership: true, // Bắt buộc tham số này để đổi chủ sở hữu
+          moveToNewOwnersRoot: false, // Giữ nguyên vị trí file trong thư mục hiện tại, không chuyển về Root của User
+          supportsAllDrives: true,
+        } as any);
+        console.log(
+          `➡️ Đã chuyển giao thành công quyền sở hữu file ${driveFile.id} về tài khoản cá nhân.`,
+        );
+      } catch (permError: any) {
+        console.error(
+          "⚠️ Cảnh báo lỗi phân quyền Transfer Ownership:",
+          permError.message,
+        );
+        // Nếu lỗi phân quyền xảy ra, không làm sập luồng chính, vẫn cố gắng trả về file id nếu có thể
+      }
+    }
 
     // Trả về kết quả thành công cho client
     return NextResponse.json({
       success: true,
       fileId: driveFile.id,
-      url: driveFile.webViewLink, // Link xem trực tuyến trên Drive
-      downloadUrl: driveFile.webContentLink, // Link click tải trực tiếp file về máy
+      url: driveFile.webViewLink,
+      downloadUrl: driveFile.webContentLink,
     });
   } catch (error: any) {
-    console.error("🔥 Lỗi Upload Hệ Thống Google Drive (OAuth2):", error);
+    console.error("🔥 Lỗi Upload Hệ Thống Google Drive:", error);
     return NextResponse.json(
       { error: error.message || "Lỗi xử lý hệ thống upload" },
       { status: 500 },
