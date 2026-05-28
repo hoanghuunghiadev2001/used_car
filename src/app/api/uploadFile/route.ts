@@ -56,19 +56,6 @@ export async function POST(req: NextRequest) {
     // 4. BẪY DEBUG & LÀM SẠCH BIẾN MÔI TRƯỜNG
     const rawFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-    console.log("\n====== 🛡️ GOOGLE DRIVE SYSTEM DEBUG ======");
-    console.log(
-      "-> Độ dài ID nhận được:",
-      rawFolderId ? rawFolderId.length : 0,
-      "ký tự",
-    );
-    console.log("-> Cấu trúc JSON của ID:", JSON.stringify(rawFolderId));
-    console.log(
-      "-> Email Service Account đang chạy:",
-      process.env.GOOGLE_CLIENT_EMAIL,
-    );
-    console.log("===========================================\n");
-
     // Xử lý khoảng trắng, tab, xuống dòng phát sinh từ môi trường Windows Server
     const cleanFolderId = rawFolderId
       ? rawFolderId.replace(/[\r\n\t]/g, "").trim()
