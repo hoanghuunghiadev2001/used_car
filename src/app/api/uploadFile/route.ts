@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 
+// Hàm chuyển đổi tiếng Việt có dấu thành không dấu và xóa ký tự đặc biệt
+function removeVietnameseTones(str: string) {
+  str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  str = str.replace(/[đĐ]/g, "d");
+  return str
+    .replace(/[^a-zA-Z0-9.\-_]/g, "-") // Thay ký tự đặc biệt bằng "-"
+    .replace(/-+/g, "-") // Sửa trường hợp nhiều dấu "-" liên tiếp
+    .toLowerCase();
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".jpg", ".jpeg", ".png"];
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -14,32 +27,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Đọc dữ liệu file dưới dạng Buffer
+    // 1. Validate dung lượng file
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "Kích thước file vượt quá giới hạn cho phép (10MB)" },
+        { status: 400 },
+      );
+    }
+
+    // 2. Validate định dạng file
+    const ext = path.extname(file.name).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return NextResponse.json(
+        { error: "Định dạng file không được hỗ trợ" },
+        { status: 400 },
+      );
+    }
+
+    // 3. Đọc dữ liệu file
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // 2. Tạo tên file duy nhất để tránh trùng lặp (ví dụ: 1716712345678-hop-dong.pdf)
-    const safeFileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    // 4. Chuẩn hóa tên file an toàn (Không dấu, không khoảng trắng)
+    const baseName = path.basename(file.name, ext);
+    const safeBaseName = removeVietnameseTones(baseName);
+    const safeFileName = `${Date.now()}-${safeBaseName}${ext}`;
 
-    // 3. Định nghĩa đường dẫn lưu file trong thư mục public
+    // 5. Định nghĩa đường dẫn lưu file
     const uploadDir = path.join(
       process.cwd(),
       "public",
       "uploads",
       "contracts",
     );
-
-    // Đảm bảo thư mục tồn tại, nếu chưa có thì tự động tạo
     await fs.mkdir(uploadDir, { recursive: true });
 
     const filePath = path.join(uploadDir, safeFileName);
 
-    // 4. Ghi file xuống ổ đĩa của server
+    // 6. Ghi file xuống ổ đĩa
     await fs.writeFile(filePath, buffer);
 
-    // 5. Trả về đường dẫn tĩnh có thể truy cập công khai từ client
     const fileUrl = `/uploads/contracts/${safeFileName}`;
-
     return NextResponse.json({ success: true, url: fileUrl });
   } catch (error) {
     console.error("Lỗi Server Upload:", error);

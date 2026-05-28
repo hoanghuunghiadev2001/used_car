@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
+import React, { useState } from "react";
 import {
   Row,
   Col,
@@ -16,6 +16,7 @@ import {
   Button,
   Switch,
   Space,
+  message,
 } from "antd";
 import {
   CarOutlined,
@@ -129,48 +130,70 @@ export const VehicleFormFields = ({
     "Mức 1: Cần phải sửa chửa nhiều",
   ];
 
-  // 🚀 LOGIC CHUYỂN ĐỔI FILE SANG CHUỖI BASE64 ĐỂ LƯU THẲNG VÀO DATABASE
-  const handleBase64Upload = async (options: any) => {
-    const { file, onSuccess, onError } = options;
+  // 🚀 LUỒNG MỚI: UPLOAD FILE LÊN SERVER/CLOUD ĐỂ LẤY URL CHUỖI SIÊU NHẸ
+  const handleDirectUpload = async (options: any) => {
+    const { file, onSuccess, onError, onProgress } = options;
 
-    // Giới hạn dung lượng file để chống tràn payload server (khuyên dùng dưới 3MB)
-    const isLt3M = file.size / 1024 / 1024 < 3;
-    if (!isLt3M) {
-      onError(new Error("File phải nhỏ hơn 3MB để lưu vào database!"));
+    // Giới hạn file tải lên (ví dụ: 5MB thay vì phải ép xuống quá thấp như base64)
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error("File hình ảnh không được vượt quá 5MB!");
+      onError(new Error("File quá lớn"));
       return;
     }
 
-    const reader = new FileReader();
-    // Đọc file dưới dạng Data URL (Bản chất chính là chuỗi Base64 kèm định dạng ảnh/pdf)
-    reader.readAsDataURL(file as Blob);
+    try {
+      // 1. Tạo FormData để chuẩn bị gửi file vật lý lên API endpoint xử lý upload độc lập
+      const formData = new FormData();
+      formData.append("file", file);
 
-    reader.onload = () => {
-      // Khi đọc thành công, trả về Object mô phỏng cấu trúc của Cloudinary cũ
-      // để dữ liệu fileList của Ant Design nhận diện tốt url hiển thị (preview)
-      const base64String = reader.result as string;
+      // 2. Gọi tới API endpoint chuyên upload file của bạn (Ví dụ: /api/upload)
+      // API này sẽ upload ảnh thẳng lên S3, Cloudinary hoặc thư mục Server và trả về URL
+      const response = await fetch("/api/uploadFile", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Lỗi tải tập tin lên máy chủ lưu trữ.");
+      }
+
+      const data = await response.json(); // Kỳ vọng nhận về kết quả dạng: { url: "https://..." }
+
+      // 3. Báo cho Ant Design biết upload đã thành công và truyền URL mạng vào để lưu
       onSuccess({
         uid: file.uid,
         name: file.name,
         status: "done",
-        url: base64String, // Chuỗi base64 này sẽ được đưa vào làm url preview và submit lên server
-        secure_url: base64String, // Dự phòng nếu luồng xử lý submit của bạn đang bóc tách trường này
+        url: data.url, // URL sạch từ cloud, lưu vào DB cực nhẹ
       });
-    };
 
-    reader.onerror = (error) => {
+      message.success(`Tải lên file ${file.name} thành công.`);
+    } catch (error: any) {
+      console.error("UPLOAD ERROR:", error);
       onError(error);
-    };
+      message.error(`Tải file ${file.name} thất bại.`);
+    }
   };
 
+  // Hàm chuẩn hóa dữ liệu từ Upload list sang cấu trúc dữ liệu gửi lên DB
   const normFile = (e: any) => {
     if (Array.isArray(e)) return e;
-    // Map lại danh sách file để gán trường url bằng dữ liệu base64 đã nhận từ onSuccess
-    return e?.fileList?.map((file: any) => {
-      if (file.response && file.response.url) {
-        file.url = file.response.url;
-      }
-      return file;
-    });
+
+    // Chỉ lấy và giữ lại những file đã upload thành công hoặc file cũ đã có URL sẵn
+    return (
+      e?.fileList?.map((file: any) => {
+        if (file.response && file.response.url) {
+          return {
+            uid: file.uid,
+            name: file.name,
+            status: "done",
+            url: file.response.url, // Ép URL này vào data form chính
+          };
+        }
+        return file;
+      }) || []
+    );
   };
 
   const showInspectionDetails = !isBuyType && inspectStatus === "INSPECTED";
@@ -339,7 +362,7 @@ export const VehicleFormFields = ({
                 valuePropName="checked"
               >
                 <Switch
-                  checkedChildren="CÓ VI PHẠM"
+                  checkedChildren="CÒN VI PHẠM"
                   unCheckedChildren="SẠCH"
                   className={hasFine ? "bg-red-500" : "bg-emerald-500"}
                 />
@@ -884,7 +907,7 @@ export const VehicleFormFields = ({
         </Col>
       </Row>
 
-      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU (ĐÃ THAY THẾ CLOUDINARY) --- */}
+      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU (ĐÃ FIX CHUYỂN QUA URL ONLINE) --- */}
       {!isBuyType && (
         <>
           <Divider className="!my-8">
@@ -916,7 +939,7 @@ export const VehicleFormFields = ({
                   ]}
                 >
                   <Upload
-                    customRequest={handleBase64Upload} // 🚀 Hàm mới đổi sang Base64
+                    customRequest={handleDirectUpload} // 🔥 Luồng mới: Upload trực tiếp lấy URL
                     listType="picture-card"
                     multiple
                     accept="image/*"
@@ -949,10 +972,10 @@ export const VehicleFormFields = ({
                   ]}
                 >
                   <Upload
-                    customRequest={handleBase64Upload} // 🚀 Hàm mới đổi sang Base64
+                    customRequest={handleDirectUpload} // 🔥 Luồng mới: Upload trực tiếp lấy URL
                     listType="picture"
                     multiple
-                    accept="image/*,application/pdf" // Chấp nhận cả ảnh và PDF
+                    accept="image/*,application/pdf"
                   >
                     <Button
                       icon={<PlusOutlined />}
