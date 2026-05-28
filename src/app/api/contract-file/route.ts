@@ -1,90 +1,98 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { Readable } from "stream";
+import path from "path";
 
-// Khởi tạo và xác thực client Google Drive
-async function getDriveClient() {
-  const rawPrivateKey = process.env.GOOGLE_PRIVATE_KEY;
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL; // Đồng nhất biến môi trường với đoạn check bên dưới
+// Hàm làm sạch tên file
+function removeVietnameseTones(str: string) {
+  str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return str.replace(/[^a-zA-Z0-9.\-_]/g, "-").toLowerCase();
+}
 
-  if (!clientEmail || !rawPrivateKey) {
-    throw new Error(
-      "Thiếu cấu hình GOOGLE_SERVICE_ACCOUNT_EMAIL hoặc GOOGLE_PRIVATE_KEY tại biến môi trường .env",
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file)
+      return NextResponse.json(
+        { error: "Không tìm thấy file" },
+        { status: 400 },
+      );
+
+    // 1. Cấu hình OAuth2 Client (Sử dụng Refresh Token để lấy quyền vĩnh viễn)
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      "https://developers.google.com/oauthplayground",
+    );
+
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    });
+
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    // 2. Chuẩn bị Buffer và tên file
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const safeFileName = `${Date.now()}-${removeVietnameseTones(path.basename(file.name))}`;
+
+    // 3. Upload file (Dùng OAuth2 không bị giới hạn Quota như Service Account)
+    const driveResponse = await drive.files.create({
+      requestBody: {
+        name: safeFileName,
+        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID as string],
+      },
+      media: {
+        mimeType: file.type,
+        body: Readable.from(buffer),
+      },
+      fields: "id, webViewLink",
+    });
+
+    return NextResponse.json({
+      success: true,
+      fileId: driveResponse.data.id,
+      url: driveResponse.data.webViewLink,
+    });
+  } catch (error: any) {
+    console.error("🔥 Lỗi Upload OAuth2:", error);
+    return NextResponse.json(
+      { error: error.message || "Lỗi hệ thống khi upload" },
+      { status: 500 },
     );
   }
-
-  // Xử lý làm sạch chuỗi private_key: Khử dấu nháy kép bọc ngoài và phục hồi dấu xuống dòng \n chuẩn
-  const formattedPrivateKey = rawPrivateKey
-    .replace(/^["']|["']$/g, "")
-    .replace(/\\n/g, "\n");
-
-  // Khởi tạo phương thức xác thực JWT
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: formattedPrivateKey,
-    scopes: ["https://www.googleapis.com/auth/drive.readonly"], // Đổi sang readonly để tăng tính bảo mật bảo vệ dữ liệu
-    // LƯU Ý: Đã bỏ hoàn toàn thuộc tính `subject` để tránh lỗi phân quyền hệ thống "unauthorized_client"
-  });
-
-  return google.drive({ version: "v3", auth });
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const fileId = searchParams.get("id");
-    const action = searchParams.get("action") || "view"; // Mặc định là view hoặc download
+    if (!fileId) return new NextResponse("Thiếu ID", { status: 400 });
 
-    if (!fileId) {
-      return new NextResponse("Thiếu tham số ID File hợp đồng.", {
-        status: 400,
-      });
-    }
-
-    const drive = await getDriveClient();
-
-    // 1. Lấy thông tin chi tiết (metadata) của file từ Google Drive
-    const fileMetadata = await drive.files.get({
-      fileId: fileId,
-      fields: "name, mimeType",
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+    );
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
     });
 
-    const fileName = fileMetadata.data.name || "HopDong.pdf";
-    const contentType = fileMetadata.data.mimeType || "application/pdf";
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    // 2. Tải luồng dữ liệu nhị phân (Buffer) của File dưới dạng arraybuffer
-    const driveResponse = await drive.files.get(
-      { fileId: fileId, alt: "media" },
+    // Lấy thông tin tệp
+    const meta = await drive.files.get({ fileId, fields: "mimeType" });
+    // Tải dữ liệu ảnh
+    const response = await drive.files.get(
+      { fileId, alt: "media" },
       { responseType: "arraybuffer" },
     );
 
-    const fileBuffer = Buffer.from(driveResponse.data as ArrayBuffer);
-
-    // 3. Thiết lập Header phản hồi tương ứng dựa theo nhu cầu Xem hay Tải về
-    const headers = new Headers();
-    headers.set("Content-Type", contentType);
-
-    if (action === "download") {
-      // Nếu là tải về: Ép trình duyệt mở hộp thoại lưu tập tin nguyên bản có dấu tiếng Việt mẫu xe/hợp đồng
-      const encodedFileName = encodeURIComponent(fileName);
-      headers.set(
-        "Content-Disposition",
-        `attachment; filename*=UTF-8''${encodedFileName}`,
-      );
-    } else {
-      // Nếu là xem: Hiển thị trực tiếp (inline) trong khung iframe Antd của frontend
-      headers.set("Content-Disposition", "inline");
-    }
-
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: headers,
+    return new NextResponse(Buffer.from(response.data as ArrayBuffer), {
+      headers: { "Content-Type": meta.data.mimeType as string },
     });
-  } catch (error: any) {
-    console.error("Lỗi API kết nối Google Drive:", error);
-    return new NextResponse(
-      `Không thể truy cập tệp tin trên Google Drive. Chi tiết: ${error.message || error}`,
-      { status: 500 },
-    );
+  } catch (error) {
+    return new NextResponse("Không thể tải ảnh", { status: 500 });
   }
 }
