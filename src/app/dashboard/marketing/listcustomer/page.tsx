@@ -2,7 +2,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Table, Input, Card, Tag, Typography, Space, Empty, Spin } from "antd";
+import {
+  Table,
+  Input,
+  Card,
+  Tag,
+  Typography,
+  Space,
+  Empty,
+  Spin,
+  Tooltip,
+} from "antd";
 import {
   SearchOutlined,
   UserOutlined,
@@ -56,6 +66,28 @@ const MarketingDashboard = () => {
     return colors[type] || "default";
   };
 
+  const SOURCE_CONFIG: Record<string, { label: string; color: string }> = {
+    // Nhóm Social
+    FACEBOOK_ADS: { label: "Facebook Ads", color: "#1877f2" },
+    FACEBOOK_PERSONAL: { label: "FB Cá nhân", color: "#4267B2" },
+    TIKTOK_COMPANY: { label: "TikTok (Cty)", color: "#000000" },
+    TIKTOK_PERSONAL: { label: "TikTok (Cá nhân)", color: "#FE2C55" },
+    YOUTUBE_COMPANY: { label: "YouTube (Cty)", color: "#FF0000" },
+    YOUTUBE_PERSONAL: { label: "YouTube (Cá nhân)", color: "#c4302b" },
+
+    // Nhóm Zalo & Chat
+    ZALO_OA: { label: "Zalo OA", color: "#0068FF" },
+    ZALO_PERSONAL: { label: "Zalo Cá nhân", color: "#0091FF" },
+
+    // Nhóm khác
+    GOOGLE_MAPS: { label: "Google Maps", color: "#4285F4" },
+    CHOTOT: { label: "Chợ Tốt", color: "#f59e0b" },
+    REFERRAL: { label: "Người giới thiệu", color: "#10b981" },
+    WALK_IN: { label: "Khách vãng lai", color: "#8b5cf6" },
+    HOTLINE: { label: "Hotline", color: "#ef4444" },
+    // ... bổ sung các nguồn còn lại
+  };
+
   // Trong hàm fetchData, kiểu dữ liệu sẽ tự động khớp
   const fetchData = async (page: number, search: string) => {
     setLoading(true);
@@ -97,6 +129,29 @@ const MarketingDashboard = () => {
       render: (phone: string) => (
         <Text className="font-mono text-blue-600">{phone}</Text>
       ),
+    },
+    {
+      title: "Nguồn",
+      dataIndex: "source",
+      key: "source",
+      render: (source: string) => {
+        const config = SOURCE_CONFIG[source] || {
+          label: source,
+          color: "#666",
+        };
+        return (
+          <Tooltip title={config.label}>
+            <Tag
+              color={config.color}
+              className="cursor-pointer border-none rounded-md px-2"
+            >
+              {config.label.length > 12
+                ? config.label.substring(0, 10) + "..."
+                : config.label}
+            </Tag>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Người giới thiệu",

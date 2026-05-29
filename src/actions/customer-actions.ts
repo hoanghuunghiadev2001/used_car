@@ -603,7 +603,8 @@ export async function getCustomersAction(filters?: {
       fullName: true,
       phone: true,
       createdAt: true,
-      type: true, // <--- THÊM DÒNG NÀY
+      type: true,
+      source: true,
       assignedTo: { select: { fullName: true } },
       branch: { select: { name: true } },
       carModel: { select: { name: true } },
