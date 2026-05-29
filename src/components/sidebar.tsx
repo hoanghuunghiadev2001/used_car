@@ -38,6 +38,7 @@ type Role =
   | "PURCHASE_STAFF"
   | "SALES_STAFF"
   | "REFERRER"
+  | "MARKETING"
   | "APPRAISER"
   | "SALE_MANAGER"
   | "ADMIN_MANAGER";
@@ -71,6 +72,7 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
     REFERRER: { label: "Người giới thiệu", color: "#8c8c8c" },
     APPRAISER: { label: "Định giá viên", color: "#722ed1" },
     SALE_MANAGER: { label: "Quản lý bán hàng", color: "#13c2c2" },
+    MARKETING: { label: "Marketing", color: "#eb2f96" },
     ADMIN_MANAGER: { label: "Quản lý Admin", color: "#eb2f96" },
   };
 
@@ -353,6 +355,15 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
       icon: <DashboardOutlined />,
       label: (
         <Link href="/sale-manager/customer-list">Danh sách khách hàng</Link>
+      ),
+    },
+    hasAccess(["MARKETING"]) && {
+      key: "/dashboard/marketing/listcustomer",
+      icon: <DashboardOutlined />,
+      label: (
+        <Link href="/dashboard/marketing/listcustomer">
+          Danh sách khách hàng
+        </Link>
       ),
     },
     // 5. CÁ NHÂN

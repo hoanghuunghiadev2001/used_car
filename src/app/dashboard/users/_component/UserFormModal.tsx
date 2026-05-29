@@ -157,6 +157,9 @@ export default function UserFormModal({
                           <Select.Option value="ADMIN_MANAGER">
                             Quản lý Admin
                           </Select.Option>
+                          <Select.Option value="MARKETING">
+                            Marketing
+                          </Select.Option>
                         </Select>
                       </Form.Item>
                     </Col>

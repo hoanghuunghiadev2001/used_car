@@ -560,89 +560,108 @@ export async function getCustomersAction(filters?: {
   pageSize?: number;
 }) {
   try {
-    // 1. Kiểm tra quyền hạn
     const currentUser = await getCurrentUser();
     if (!currentUser) throw new Error("Unauthorized");
 
-    // 2. Thiết lập thông số phân trang
     const page = filters?.page || 1;
     const pageSize = filters?.pageSize || 10;
     const skip = (page - 1) * pageSize;
 
+    const isMarketing = currentUser.role === "MARKETING";
     const isGlobalPower =
-      currentUser.role === "ADMIN" || currentUser.isGlobalManager;
+      currentUser.role === "ADMIN" ||
+      currentUser.isGlobalManager ||
+      isMarketing;
 
-    // 3. Xây dựng điều kiện lọc (WHERE)
     const where: any = {};
 
-    // Phân quyền theo chi nhánh
+    // Phân quyền chi nhánh
     if (!isGlobalPower) {
       where.branchId = currentUser.branchId;
     }
 
-    // Logic tìm kiếm nâng cao
+    // Logic tìm kiếm
     const andConditions: any[] = [];
-
-    // Tìm kiếm tổng hợp (Tên, SĐT, Biển số)
     if (filters?.searchText) {
       andConditions.push({
         OR: [
           { fullName: { contains: filters.searchText } },
           { phone: { contains: filters.searchText } },
-          {
-            licensePlate: { contains: filters.searchText },
-          },
+          { licensePlate: { contains: filters.searchText } },
         ],
       });
     }
-
-    // Tìm kiếm theo tên xe (Nhập ký tự - Lọc qua quan hệ bảng carModel)
     if (filters?.carModelName) {
       andConditions.push({
-        carModel: {
-          name: { contains: filters.carModelName },
-        },
+        carModel: { name: { contains: filters.carModelName } },
       });
     }
+    if (andConditions.length > 0) where.AND = andConditions;
 
-    if (andConditions.length > 0) {
-      where.AND = andConditions;
-    }
+    // Định nghĩa cấu trúc select an toàn cho Type-safety
+    const marketingSelect = {
+      fullName: true,
+      phone: true,
+      createdAt: true,
+      type: true, // <--- THÊM DÒNG NÀY
+      assignedTo: { select: { fullName: true } },
+      branch: { select: { name: true } },
+      carModel: { select: { name: true } },
+      referrer: { select: { fullName: true } },
+    };
 
-    // 4. Thực thi truy vấn song song (Đếm tổng và Lấy dữ liệu trang)
-    const [total, customers] = await Promise.all([
+    const adminSelect = {
+      id: true,
+      fullName: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+      assignedTo: { select: { fullName: true, id: true } },
+      branch: { select: { name: true } },
+      carModel: { select: { name: true } },
+      referrer: {
+        select: {
+          fullName: true,
+          username: true,
+          branch: { select: { name: true } },
+        },
+      },
+      activities: {
+        select: {
+          id: true,
+          note: true,
+          createdAt: true,
+          user: { select: { fullName: true } },
+          reason: { select: { content: true } },
+        },
+      },
+    };
+
+    // Thực thi truy vấn
+    const [total, rawCustomers] = await Promise.all([
       db.customer.count({ where }),
       db.customer.findMany({
         where,
-        include: {
-          carModel: { select: { name: true } },
-          referrer: {
-            select: {
-              fullName: true,
-              username: true,
-              branch: { select: { name: true } },
-            },
-          },
-          activities: {
-            orderBy: { createdAt: "desc" }, // Mới nhất lên đầu
-            include: {
-              user: { select: { fullName: true } }, // Ai làm
-              reason: { select: { content: true } }, // Lý do (nếu có)
-            },
-          },
-          assignedTo: { select: { fullName: true, id: true } },
-          // Thêm các quan hệ khác nếu modal chi tiết cần dùng
-          branch: { select: { name: true } },
-        },
+        select: isMarketing ? marketingSelect : adminSelect,
         orderBy: { createdAt: "desc" },
-        skip: skip,
+        skip,
         take: pageSize,
       }),
     ]);
 
-    // 5. Trả về kết quả có cấu trúc phân trang
+    // Xử lý sắp xếp activities cho admin (nếu cần)
+    const data = rawCustomers.map((customer: any) => {
+      if (customer.activities && Array.isArray(customer.activities)) {
+        customer.activities.sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      }
+      return customer;
+    });
+
     return {
-      data: JSON.parse(JSON.stringify(customers)),
+      data,
       pagination: {
         total,
         page,
@@ -658,6 +677,7 @@ export async function getCustomersAction(filters?: {
     };
   }
 }
+
 export async function getMyReferralsAction() {
   const auth = await getCurrentUser();
   if (!auth) throw new Error("Unauthorized");
