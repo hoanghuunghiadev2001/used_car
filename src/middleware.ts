@@ -46,6 +46,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
   "/dashboard/referrals/new": [
@@ -56,6 +57,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
 
@@ -82,6 +84,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
   "/dashboard/showroom": [
@@ -92,6 +95,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
   "/dashboard/profile": [
@@ -102,6 +106,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
   "/dashboard/schedules": [
@@ -112,6 +117,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "PURCHASE_STAFF",
     "APPRAISER",
     "REFERRER",
+    "MARKETING",
     "SALE_MANAGER",
   ],
 
@@ -176,7 +182,8 @@ export async function middleware(req: NextRequest) {
         );
       }
 
-      // 3. Đối với các Role khác (REFERRER...)
+      // 3. Đối với các Role khác (REFERRER..
+      // "MARKETING",.)
       // Redirect to referrals page for other roles
       return NextResponse.redirect(
         new URL("/dashboard/referrals/new", req.url),
