@@ -267,11 +267,7 @@ export const VehicleFormFields = ({
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item
-                name="dateViewCar"
-                label="Ngày xem xe"
-                rules={[{ required: true, message: "Nhập Ngày xem xe" }]}
-              >
+              <Form.Item name="dateViewCar" label="Ngày xem xe">
                 <DatePicker
                   classNames={{ popup: { root: "mobile-center-picker" } }}
                   className="w-full"
