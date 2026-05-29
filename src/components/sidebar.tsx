@@ -274,7 +274,7 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
         },
       ],
     },
-    {
+    hasAccess(["ADMIN", "PURCHASE_STAFF", "SALES_STAFF"]) && {
       type: "group",
       label: !collapsed ? "HOẠT ĐỘNG HÔM NAY" : "",
       children: [
