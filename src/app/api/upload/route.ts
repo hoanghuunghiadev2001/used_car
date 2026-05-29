@@ -4,8 +4,8 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 
 async function getDriveService() {
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY2;
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL2;
 
   // SỬA LỖI TẠI ĐÂY: Truyền vào 1 object duy nhất
   const auth = new google.auth.JWT({

@@ -19,13 +19,13 @@ export async function POST(req: NextRequest) {
 
     // 1. Cấu hình OAuth2 Client (Sử dụng thông tin OAuth2 bạn đã cung cấp)
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_CLIENT_ID2,
+      process.env.GOOGLE_CLIENT_SECRET2,
       "https://developers.google.com/oauthplayground", // Redirect URI chuẩn của playground
     );
 
     oauth2Client.setCredentials({
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN2,
     });
 
     const drive = google.drive({ version: "v3", auth: oauth2Client });
