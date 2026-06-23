@@ -17,6 +17,7 @@ import {
   Switch,
   Space,
   message,
+  Progress,
 } from "antd";
 import {
   CarOutlined,
@@ -32,7 +33,6 @@ import {
   InfoCircleOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { getDisplayImageUrl } from "@/utils/googleDrive";
 
 const { Text } = Typography;
 
@@ -123,6 +123,11 @@ export const VehicleFormFields = ({
   const insuranceTNDS = Form.useWatch("insuranceTNDS", form);
   const insuranceVC = Form.useWatch("insuranceVC", form);
 
+  // ✅ State để tracking upload progress
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
+
   const conditionOptions = [
     "Mức 5: Xuất sắc: gần như mới",
     "Mức 4: Rất tốt: Có thể trưng bày ngay",
@@ -131,13 +136,77 @@ export const VehicleFormFields = ({
     "Mức 1: Cần phải sửa chửa nhiều",
   ];
 
-  // 🚀 LUỒNG MỚI: UPLOAD FILE LÊN SERVER/CLOUD ĐỂ LẤY URL CHUỖI SIÊU NHẸ
+  // ✅ CÁCH 1: Upload file lên server với progress tracking
   const handleDirectUpload = async (options: any) => {
-    const { file, onSuccess, onError } = options;
+    const { file, onSuccess, onError, onProgress } = options;
 
-    const isLt5M = file.size / 1024 / 1024 < 5;
-    if (!isLt5M) {
-      message.error("File hình ảnh không được vượt quá 5MB!");
+    // 1️⃣ Validate kích thước (client-side kiểm tra nhanh)
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      message.error("File hình ảnh không được vượt quá 10MB!");
+      onError(new Error("File quá lớn"));
+      return;
+    }
+
+    // 2️⃣ Validate loại file
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      message.error("Chỉ hỗ trợ JPG, PNG, WebP, GIF, PDF!");
+      onError(new Error("Loại file không hợp lệ"));
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // ✅ Gọi API endpoint mới để lưu trên server
+      const response = await fetch("/api/uploadFile", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Lỗi upload");
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.url) {
+        throw new Error("Không nhận được URL từ server");
+      }
+
+      // 3️⃣ Callback thành công - trả về URL từ server
+      onSuccess({ url: data.url }, file);
+      message.success(`✅ Tải lên ${file.name} thành công!`);
+
+      console.log(
+        `📁 File uploaded: ${data.fileName} (${data.fileSize} bytes)`,
+      );
+    } catch (error: any) {
+      console.error("❌ Upload error:", error);
+      onError(error);
+      message.error(`❌ Tải file thất bại: ${error.message}`);
+    }
+  };
+
+  // ✅ CÁCH 2 (ALTERNATIVE): Upload với tracking progress - Nếu cần hiển thị progress bar
+  const handleUploadWithProgress = async (options: any) => {
+    const { file, onSuccess, onError, onProgress } = options;
+
+    const fileKey = file.uid || file.name;
+
+    // Validate
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      message.error("File quá lớn (max 10MB)");
       onError(new Error("File quá lớn"));
       return;
     }
@@ -146,25 +215,61 @@ export const VehicleFormFields = ({
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/uploadFile", {
-        method: "POST",
-        body: formData,
+      // Tạo XMLHttpRequest để tracking progress
+      const xhr = new XMLHttpRequest();
+
+      // Tracking upload progress
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setUploadProgress((prev) => ({
+            ...prev,
+            [fileKey]: percentComplete,
+          }));
+          onProgress?.({ percent: percentComplete });
+        }
       });
 
-      if (!response.ok) throw new Error("Lỗi upload.");
+      xhr.addEventListener("load", () => {
+        if (xhr.status === 200) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success && response.url) {
+              onSuccess({ url: response.url }, file);
+              message.success(`✅ ${file.name} tải lên thành công`);
+              setUploadProgress((prev) => ({
+                ...prev,
+                [fileKey]: 100,
+              }));
+            } else {
+              throw new Error(response.error || "Lỗi server");
+            }
+          } catch (e: any) {
+            onError(new Error(e.message || "Không thể parse response"));
+          }
+        } else {
+          onError(new Error(`HTTP ${xhr.status}`));
+        }
+      });
 
-      const data = await response.json();
+      xhr.addEventListener("error", () => {
+        onError(new Error("Network error"));
+        message.error("❌ Lỗi kết nối mạng");
+      });
 
-      // Quan trọng: Phải trả về object có thuộc tính url để antd hiển thị ảnh
-      onSuccess({ url: data.url }, file);
-      message.success(`Tải lên ${file.name} thành công.`);
+      xhr.addEventListener("abort", () => {
+        onError(new Error("Upload cancelled"));
+      });
+
+      xhr.open("POST", "/api/uploadFile");
+      xhr.send(formData);
     } catch (error: any) {
       onError(error);
-      message.error(`Tải file thất bại.`);
+      message.error(`❌ Lỗi: ${error.message}`);
     }
   };
 
-  // 2. CHUẨN HÓA DỮ LIỆU: Cho cả khi mới upload và khi load từ DB
+  // ✅ Chuẩn hóa dữ liệu từ Upload list
   const normFile = (e: any) => {
     if (Array.isArray(e)) return e;
     if (!e || !e.fileList) return [];
@@ -175,18 +280,19 @@ export const VehicleFormFields = ({
         return {
           ...file,
           status: "done",
-          url: file.response.url, // Đây là URL ảnh để hiển thị
+          url: file.response.url, // URL từ server
         };
       }
-      // Nếu file đã có sẵn url (load từ database), giữ nguyên
-      return {
-        ...file,
-        url: file.url || file.thumbUrl,
-      };
+      // Nếu file đã có sẵn url (load từ database)
+      if (file.url) {
+        return {
+          ...file,
+          url: file.url,
+        };
+      }
+      return file;
     });
   };
-
-  // Hàm chuẩn hóa dữ liệu từ Upload list sang cấu trúc dữ liệu gửi lên DB
 
   const showInspectionDetails = !isBuyType && inspectStatus === "INSPECTED";
 
@@ -895,7 +1001,7 @@ export const VehicleFormFields = ({
         </Col>
       </Row>
 
-      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU (ĐÃ FIX CHUYỂN QUA URL ONLINE) --- */}
+      {/* --- SECTION 5: HÌNH ẢNH & TÀI LIỆU (LƯU TRỰ TIẾP TRÊN SERVER) --- */}
       {!isBuyType && (
         <>
           <Divider className="!my-8">
@@ -927,7 +1033,7 @@ export const VehicleFormFields = ({
                   ]}
                 >
                   <Upload
-                    customRequest={handleDirectUpload} // 🔥 Luồng mới: Upload trực tiếp lấy URL
+                    customRequest={handleDirectUpload} // ✅ Upload trực tiếp lên server
                     listType="picture-card"
                     multiple
                     accept="image/*"
@@ -960,7 +1066,7 @@ export const VehicleFormFields = ({
                   ]}
                 >
                   <Upload
-                    customRequest={handleDirectUpload} // 🔥 Luồng mới: Upload trực tiếp lấy URL
+                    customRequest={handleDirectUpload} // ✅ Upload trực tiếp lên server
                     listType="picture"
                     multiple
                     accept="image/*,application/pdf"
