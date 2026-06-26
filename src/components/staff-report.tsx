@@ -40,8 +40,16 @@ export default function AdvancedStaffDashboard({
 
   // Lấy filter hiện tại từ URL, mặc định là month
   const currentFilter = searchParams.get("period") || "month";
-
-  const { funnel, leadQuality, taskStats, trend, rawLeads } = initialData.data;
+  if (!initialData || !initialData.data) {
+    return (
+      <div className="p-4 text-center">
+        Đang tải dữ liệu hoặc có lỗi xảy ra...
+      </div>
+    );
+    // Hoặc return <LoadingSkeleton /> tùy giao diện của bạn
+  }
+  const { funnel, leadQuality, taskStats, trend, rawLeads } =
+    initialData?.data || {};
 
   // Hàm xử lý chuyển đổi Filter bằng URL
   const handleFilterChange = (period: string) => {
