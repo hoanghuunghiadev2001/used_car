@@ -54,7 +54,7 @@ export async function getExportCustomerData(
         },
       },
       tradeInModel: { select: { name: true, grade: true } },
-      carModel: { select: { name: true, grade: true } },
+      carModel: true,
       leadCar: {
         select: {
           modelName: true,

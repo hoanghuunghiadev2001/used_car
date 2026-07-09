@@ -179,6 +179,7 @@ export default function LeadsPage() {
       if (!exportData || exportData.length === 0) {
         return message.info("Không có dữ liệu");
       }
+      console.log(exportData);
 
       await handleExportFullCustomerExcel(exportData);
       message.success(`Xuất thành công!`);

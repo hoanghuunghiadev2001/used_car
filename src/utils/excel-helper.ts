@@ -40,7 +40,7 @@ export const translateSource = (source: string) => {
     TIKTOK_COMPANY: "Tiktok công ty",
     YOUTUBE_COMPANY: "Youtube công ty",
     GOOGLE_MAPS: "Google Maps",
-    SHROOM: "Shroom",
+    SHROOM: "Showroom",
     EVENT: "Sự kiện",
 
     // --- NGUỒN CÁ NHÂN KHAI THÁC ---
@@ -188,8 +188,8 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       phone: item.phone,
       province: item.province,
       address: item.address,
-      model: item.carModel?.name,
-      grade: item.leadCar?.grade || item.carModel?.grade,
+      model: item.carModel?.name || "N/A",
+      grade: item.carModel?.grade || "N/A",
       gradeTradee: item.tradeInModel?.grade,
       modelTrade: item.tradeInModel?.name,
 
@@ -256,6 +256,8 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     // Nhóm: Nhu cầu xe (Rất quan trọng)
     { header: "MODEL QUAN TÂM", key: "model", width: 20 },
     { header: "PHIÊN BẢN", key: "grade", width: 15 },
+    { header: "NĂM SẢN XUẤT", key: "year", width: 15 },
+    { header: "MÀU XE", key: "color", width: 15 },
 
     // Nhóm: Chăm sóc khách hàng
     { header: "LẦN LH GẦN NHẤT", key: "lastDate", width: 12 },
@@ -292,9 +294,10 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       address: item.address,
       dateViewCar: dayjs(item.dateViewCar).format("DD/MM/YYYY") ?? "-",
       refStaff: item.referrer?.fullName,
-      model: item.carModel?.name || "---",
+      model: item.leadCar?.modelName || "---",
       grade: item.carModel?.grade || "---",
-      color: item.favoriteColor || "---",
+      year: item.leadCar?.year || "---",
+      color: item.leadCar?.color || "---",
       purpose: item.usagePurpose || "---",
       testDrive: item.hasTestDrive ? "Đã lái thử" : "Chưa",
       budget: item.budget ? Number(item.budget) : null,
@@ -419,6 +422,7 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
     { header: "Phiên bản", key: "grade", width: 15 },
     { header: "Model muốn đổi", key: "modelTrade", width: 20 },
     { header: "Phiên bản muốn đổi", key: "gradeTradee", width: 15 },
+    { header: "Màu xe", key: "color", width: 15 },
     { header: "Năm SX", key: "year", width: 10 },
     { header: "Số km (ODO)", key: "odo", width: 12 },
     { header: "NV Giám định", key: "inspector", width: 20 },
@@ -456,8 +460,8 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
       reasonDetail: reasonDetail || "",
       address: item.address,
       province: item.province,
-      model: item.carModel?.name,
-      grade: item.carModel?.grade || item.leadCar?.grade || "N/A",
+      model: item.leadCar?.modelName || "N/A",
+      grade: item.carModel?.grade || "N/A",
       gradeTradee: item.tradeInModel?.grade,
       modelTrade: item.tradeInModel?.name,
       year: item.leadCar?.year || item.carYear,
@@ -544,8 +548,10 @@ export const handleExportFullCustomerExcelManager = async (data: any[]) => {
       source: item.referrer?.department?.name || "Vãng lai",
       sourceDetail: translateSource(item.source),
       budget: item.budget ? Number(item.budget) : null,
-      model: item.carModel?.name,
-      grade: item.carModel?.grade ?? "",
+      model: item.leadCar?.modelName || "N/A",
+      grade: item.carModel?.grade || "N/A",
+      year: item.leadCar?.year || "N/A",
+      color: item.leadCar?.color || "N/A",
 
       lastDate: item.lastContactAt
         ? dayjs(item.lastContactAt).format("DD/MM/YYYY")

@@ -277,7 +277,7 @@ export default function FormBuyCar({
                         },
                         { value: "TIKTOK_COMPANY", label: "🎵 Tiktok công ty" },
                         { value: "GOOGLE_MAPS", label: "📍 Google Maps" },
-                        { value: "SHROOM", label: "🍄 Shroom" },
+                        { value: "SHROOM", label: "🍄 Showroom" },
                         { value: "EVENT", label: "🎉 Sự kiện" },
                         { value: "HOTLINE", label: "📞 Hotline" },
                       ],
