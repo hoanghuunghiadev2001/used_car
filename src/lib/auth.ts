@@ -61,6 +61,7 @@ export async function getUserFromToken(token: string) {
         branchId: true,
         tokenVersion: true,
         email: true,
+        departmentId: true, // <-- ADD THIS
       },
     });
 

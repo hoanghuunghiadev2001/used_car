@@ -5,7 +5,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
 // Hàm helper chuyển đổi trạng thái sang Tiếng Việt
-const translateStatus = (status: string) => {
+export const translateStatus = (status: string) => {
   const map: Record<string, string> = {
     NEW: "Mới",
     CONTACTED: "Đã liên hệ",
@@ -64,13 +64,24 @@ export const translateSource = (source: string) => {
   return map[source] || source;
 };
 
-// Định dạng số ngăn cách dấu chấm: #,##0 (Excel sẽ tự động đổi dấu phẩy thành dấu chấm theo cấu hình vùng của máy tính người dùng)
+// Định dạng số ngăn cách dấu chấm: #,##0
+export const NUMBER_FORMAT = "#,##0";
 
-const NUMBER_FORMAT = "#,##0";
-
-export const handleExportFullCustomerExcel = async (data: any[]) => {
+/**
+ * XUẤT EXCEL DANH SÁCH KHÁCH HÀNG (TOÀN BỘ)
+ * @param data Danh sách khách hàng cần xuất
+ * @param userRole (tùy chọn) Role của người đang xuất. Nếu là "MANAGER" thì
+ *                 sẽ tự động ẨN cột SỐ ĐIỆN THOẠI và BIỂN SỐ khỏi file Excel.
+ *                 Việc lọc DỮ LIỆU theo phòng ban đã được xử lý ở server action,
+ *                 tham số này CHỈ dùng để quyết định hiển thị cột, không dùng để bảo mật.
+ */
+export const handleExportFullCustomerExcel = async (
+  data: any[],
+  userRole?: string,
+) => {
   const workbook = new ExcelJS.Workbook();
   const today = dayjs();
+  const isManager = userRole === "MANAGER";
 
   // --- 1. ĐỊNH NGHĨA STYLE CHUẨN CORPORATE ---
   const styles = {
@@ -110,8 +121,8 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
   const sheet1 = workbook.addWorksheet("BAO CAO THU MUA");
   const sellLeads = data.filter((c) => c.type !== "BUY");
 
-  // Định nghĩa cột siêu chi tiết (30+ trường)
-  sheet1.columns = [
+  // Định nghĩa cột đầy đủ (30+ trường)
+  const fullColumns1 = [
     { header: "STT", key: "stt", width: 5 },
     { header: "PHÂN LOẠI", key: "demand", width: 15 },
     { header: "TRẠNG THÁI", key: "status", width: 15 },
@@ -129,7 +140,7 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
 
     // Nhóm: Khách hàng
     { header: "TÊN KHÁCH HÀNG", key: "name", width: 25 },
-    { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 },
+    { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 }, // ẨN nếu MANAGER
     { header: "TỈNH/THÀNH", key: "province", width: 15 },
     { header: "ĐỊA CHỈ CHI TIẾT", key: "address", width: 35 },
 
@@ -139,7 +150,7 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     { header: "MODEL MUỐN ĐỔI", key: "modelTrade", width: 20 },
     { header: "PHIÊN BẢN MUỐN ĐỔI", key: "gradeTradee", width: 15 },
     { header: "NĂM SẢN XUẤT", key: "year", width: 10 },
-    { header: "BIỂN SỐ", key: "plate", width: 15 },
+    { header: "BIỂN SỐ", key: "plate", width: 15 }, // ẨN nếu MANAGER
     { header: "ODO (KM)", key: "odo", width: 12 },
     { header: "MÀU XE", key: "color", width: 12 },
 
@@ -160,6 +171,11 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     { header: "GHI CHÚ HỆ THỐNG", key: "internalNote", width: 40 },
   ];
 
+  // Nếu là Trưởng phòng -> bỏ cột phone và plate ra khỏi file xuất
+  sheet1.columns = isManager
+    ? fullColumns1.filter((c) => c.key !== "phone" && c.key !== "plate")
+    : fullColumns1;
+
   sellLeads.forEach((item, index) => {
     const reasonDetail =
       item.status === "FROZEN"
@@ -171,6 +187,8 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     const isFuture =
       item.nextContactAt && dayjs(item.nextContactAt).isAfter(today);
 
+    // Vẫn build đủ dữ liệu; những key không có trong sheet1.columns (phone, plate
+    // khi isManager = true) sẽ tự động bị ExcelJS bỏ qua khi addRow, không cần if/else
     const row = sheet1.addRow({
       stt: index + 1,
       demand: translateStatus(item.type),
@@ -231,35 +249,28 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
   const sheet2 = workbook.addWorksheet("BAO CAO BAN HANG");
   const buyLeads = data.filter((c) => c.type === "BUY");
 
-  sheet2.columns = [
+  const fullColumns2 = [
     { header: "STT", key: "stt", width: 5 },
-    { header: "PHÂN LOẠI KH", key: "level", width: 15 }, // Khách nóng, ấm, lạnh
+    { header: "PHÂN LOẠI KH", key: "level", width: 15 },
     { header: "TRẠNG THÁI", key: "status", width: 15 },
     { header: "LÝ DO ĐÓNG BĂNG/LOST", key: "reasonDetail", width: 15 },
     { header: "CHI NHÁNH", key: "branch", width: 20 },
-
-    // Nhóm: Nhân sự & Nguồn
     { header: "NV TIẾP NHẬN", key: "staff", width: 20 },
     { header: "NGÀY NHẬN", key: "dateIn", width: 12 },
     { header: "GIỜ NHẬN", key: "timeIn", width: 10 },
     { header: "NGƯỜI GIỚI THIỆU", key: "refStaff", width: 20 },
     { header: "BỘ PHẬN GT", key: "source", width: 20 },
     { header: "NGUỒN CHI TIẾT", key: "sourceDetail", width: 25 },
-
-    // Nhóm: Khách hàng
     { header: "TÊN KHÁCH HÀNG", key: "name", width: 25 },
     { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 },
     { header: "TỈNH/THÀNH", key: "province", width: 15 },
     { header: "ĐỊA CHỈ", key: "address", width: 35 },
     { header: "NGÀY XEM XE", key: "dateViewCar", width: 35 },
-
-    // Nhóm: Nhu cầu xe (Rất quan trọng)
     { header: "MODEL QUAN TÂM", key: "model", width: 20 },
     { header: "PHIÊN BẢN", key: "grade", width: 15 },
     { header: "NĂM SẢN XUẤT", key: "year", width: 15 },
     { header: "MÀU XE", key: "color", width: 15 },
-
-    // Nhóm: Chăm sóc khách hàng
+    { header: "NGÂN SÁCH", key: "budget", width: 15 }, // <-- ADD THIS
     { header: "LẦN LH GẦN NHẤT", key: "lastDate", width: 12 },
     { header: "KẾT QUẢ LIÊN HỆ", key: "lastRes", width: 40 },
     { header: "TỔNG SỐ LẦN LH", key: "count", width: 12 },
@@ -267,6 +278,10 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
     { header: "NỘI DUNG HẸN", key: "nextNote", width: 35 },
     { header: "GHI CHÚ NỘI BỘ", key: "note", width: 40 },
   ];
+
+  sheet2.columns = isManager
+    ? fullColumns2.filter((c) => c.key !== "phone")
+    : fullColumns2;
 
   buyLeads.forEach((item, index) => {
     const isFuture =
@@ -319,8 +334,13 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
       note: item.note,
     });
 
-    // Định dạng số cho cột Ngân sách
+    // Định dạng số cho cột Ngân sách nếu cột đó tồn tại trong sheet
+    if (sheet2.columns?.some((c) => c.key === "budget")) {
+      row.getCell("budget").numFmt = NUMBER_FORMAT;
+      row.getCell("budget").alignment = { horizontal: "right" };
+    }
   });
+
   // --- 4. CÔNG ĐOẠN "LÀM ĐẸP" CUỐI CÙNG (FINAL TOUCH) ---
   [sheet1, sheet2].forEach((s) => {
     // Độ cao header và áp dụng style
@@ -365,9 +385,12 @@ export const handleExportFullCustomerExcel = async (data: any[]) => {
 
   // --- 5. XUẤT FILE ---
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = `CRM_FULL_REPORT_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`;
+  const filename = isManager
+    ? `DS_Phong_Ban_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`
+    : `CRM_FULL_REPORT_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`;
   saveAs(new Blob([buffer]), filename);
 };
+
 export const handleExportFullCustomerExcelManager = async (data: any[]) => {
   const workbook = new ExcelJS.Workbook();
   const today = dayjs();

@@ -17,6 +17,11 @@ import { LeadStatus, Prisma, TaskStatus, UrgencyType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session-server";
 import dayjs from "@/lib/dayjs";
 import { getReferralTypeLabel } from "@/lib/utils";
+
+import ExcelJS from "exceljs";
+
+import { saveAs } from "file-saver";
+
 const calculateDeadline = (startTime: Date, maxLateMinutes: number) => {
   // Chuyển đổi sang múi giờ VN
   const vnTime = dayjs(startTime).tz("Asia/Ho_Chi_Minh");
@@ -315,7 +320,6 @@ export async function createCustomerAction(rawData: any) {
     });
 
     // 5. GỬI EMAIL THÔNG BÁO (NGOÀI TRANSACTION ĐỂ TRÁNH BLOCK DB)
-    // 5. GỬI EMAIL THÔNG BÁO (NGOÀI TRANSACTION)
     if (result) {
       const typeLabelVn = getReferralTypeLabel(result.type);
 
@@ -693,20 +697,6 @@ export async function getMyReferralsAction() {
         carModel: {
           select: { name: true },
         },
-        // Lấy thông tin giao dịch nếu deal đã xong
-        // carOwnerHistories: {
-        //   include: {
-        //     car: {
-        //       select: {
-        //         stockCode: true,
-        //         modelName: true,
-        //         licensePlate: true,
-        //       },
-        //     },
-        //   },
-        //   orderBy: { date: "desc" },
-        //   take: 1,
-        // },
       },
       orderBy: {
         createdAt: "desc", // Khách mới nhất lên đầu
@@ -865,6 +855,16 @@ export async function getFrozenLeadsAction(filters?: {
   }
 }
 
+/**
+ * 6. LẤY DANH SÁCH LEADS CHO TRANG QUẢN LÝ (Đã bổ sung phân quyền TRƯỞNG PHÒNG)
+ *
+ * Phân quyền:
+ * - ADMIN / isGlobalManager: xem tất cả, lọc theo chi nhánh nếu chọn
+ * - MANAGER (Trưởng phòng): CHỈ xem khách hàng đang do NHÂN VIÊN THUỘC PHÒNG MÌNH xử lý
+ *   (dựa theo assignedTo.departmentId, khớp với chi nhánh của Trưởng phòng đó để tránh
+ *    trùng tên phòng ban giữa TBD và TMP)
+ * - Nhân viên thường: chỉ xem khách được giao hoặc tự giới thiệu
+ */
 export async function getLeadsAction(params: {
   search?: string;
   status?: string;
@@ -890,6 +890,16 @@ export async function getLeadsAction(params: {
     endDate,
   } = params;
 
+  // Lấy thêm departmentId cho Trưởng phòng vì getCurrentUser() không trả field này
+  let managerDepartmentId: string | null = null;
+  if (role === "MANAGER") {
+    const fullUser = await db.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+    managerDepartmentId = fullUser?.departmentId ?? null;
+  }
+
   // 1. Khởi tạo điều kiện gốc (Base Conditions)
   let whereClause: any = { AND: [] };
 
@@ -899,9 +909,19 @@ export async function getLeadsAction(params: {
     if (branch && branch !== "ALL") {
       whereClause.AND.push({ branchId: branch });
     }
-  } else if (role === "MANAGER") {
-    // Manager: Luôn luôn chỉ thấy chi nhánh của mình
-    whereClause.AND.push({ branchId: branchId });
+  } else if (role === "MANAGER" || role === "GSM") {
+    // Trưởng phòng: chỉ thấy khách hàng do NHÂN VIÊN THUỘC PHÒNG MÌNH đang xử lý
+    if (!managerDepartmentId) {
+      // Chưa được gán phòng ban -> không hiện gì, tránh lộ dữ liệu ngoài phạm vi
+      whereClause.AND.push({ id: "___NONE___" });
+    } else {
+      whereClause.AND.push({
+        assignedTo: {
+          departmentId: managerDepartmentId,
+          ...(branchId ? { branchId } : {}),
+        },
+      });
+    }
   } else {
     // Staff: Chỉ thấy khách mình được phân công hoặc mình giới thiệu
     whereClause.AND.push({
@@ -1206,7 +1226,7 @@ export async function getLeadsWithoutSensitiveAction(params: {
   // --- 1. PHÂN QUYỀN (BASE SCOPE) ---
   if (role === "ADMIN" || role === "SALE_MANAGER" || isGlobalManager) {
     whereClause = {};
-  } else if (role === "MANAGER") {
+  } else if (role === "MANAGER" || role === "GSM") {
     whereClause = { branchId: userBranchId };
   } else {
     whereClause = {
@@ -1332,10 +1352,176 @@ export async function getLeadsWithoutSensitiveAction(params: {
   return { data: serializedData, total };
 }
 
+export async function getLeadsWithoutSensitiveActionGSM(params: {
+  search?: string;
+  status?: string;
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const {
+    role,
+    id: userId,
+    branchId: userBranchId,
+    departmentId: userDepartmentId,
+    isGlobalManager,
+  } = user;
+  const {
+    search,
+    status,
+    branchId,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 10,
+  } = params;
+
+  let whereClause: any = {};
+
+  // --- 1. PHÂN QUYỀN (BASE SCOPE) ---
+  if (role === "ADMIN" || role === "SALE_MANAGER" || isGlobalManager) {
+    whereClause = {};
+  } else if (role === "MANAGER") {
+    // Quản lý chi nhánh: xem theo branchId như cũ
+    whereClause = { branchId: userBranchId };
+  } else if (role === "GSM") {
+    // GSM: chỉ xem khách được GIỚI THIỆU (referrerId) bởi NV trong CÙNG phòng ban
+    if (!userDepartmentId) {
+      throw new Error("Tài khoản GSM chưa được gán phòng ban.");
+    }
+    whereClause = { referrer: { departmentId: userDepartmentId } };
+  } else {
+    whereClause = {
+      OR: [{ assignedToId: userId }, { referrerId: userId }],
+    };
+  }
+
+  // --- 2. LỌC NÂNG CAO ---
+  if (branchId && branchId !== "ALL") {
+    whereClause.branchId = branchId;
+  }
+
+  if (status && status !== "ALL") {
+    whereClause.status = status;
+  }
+
+  if (startDate || endDate) {
+    whereClause.createdAt = {};
+    if (startDate) {
+      whereClause.createdAt.gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      whereClause.createdAt.lte = end;
+    }
+  }
+
+  if (search) {
+    const searchFilter = {
+      OR: [{ fullName: { contains: search } }],
+    };
+
+    if (whereClause.AND) {
+      whereClause.AND.push(searchFilter);
+    } else {
+      whereClause.AND = [searchFilter];
+    }
+  }
+
+  // --- 3. QUERY ---
+  const [data, total] = await Promise.all([
+    db.customer.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        fullName: true,
+        status: true,
+        createdAt: true,
+        urgencyLevel: true,
+        inspectStatus: true,
+        type: true,
+        branchId: true,
+        assignedTo: {
+          select: { fullName: true },
+        },
+        referrer: {
+          select: {
+            fullName: true,
+            role: true,
+            department: { select: { name: true } }, // để hiển thị cột PHÒNG BAN
+          },
+        },
+        branch: {
+          select: { name: true },
+        },
+        carModel: {
+          select: { name: true },
+        },
+        leadCar: {
+          select: {
+            id: true,
+            tSurePrice: true,
+            expectedPrice: true,
+            finalPrice: true,
+          },
+        },
+        activities: {
+          orderBy: { createdAt: "desc" },
+          take: 3,
+          select: {
+            id: true,
+            note: true,
+            createdAt: true,
+            user: {
+              select: { fullName: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    db.customer.count({ where: whereClause }),
+  ]);
+
+  // --- 4. FIX SERIALIZATION (DECIMAL & DATES) ---
+  const serializedData = data.map((customer) => ({
+    ...customer,
+    leadCar: customer.leadCar
+      ? {
+          ...customer.leadCar,
+          tSurePrice: customer.leadCar.tSurePrice
+            ? Number(customer.leadCar.tSurePrice)
+            : null,
+          expectedPrice: customer.leadCar.expectedPrice
+            ? Number(customer.leadCar.expectedPrice)
+            : null,
+          finalPrice: customer.leadCar.finalPrice
+            ? Number(customer.leadCar.finalPrice)
+            : null,
+        }
+      : null,
+  }));
+
+  return { data: serializedData, total };
+}
+
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { oneSignalClient } from "@/lib/onesignal";
 import { sendFirebasePush } from "@/lib/push-service";
+import {
+  NUMBER_FORMAT,
+  translateSource,
+  translateStatus,
+} from "@/utils/excel-helper";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -1476,6 +1662,26 @@ export async function getCustomerList({
 
     const skip = (page - 1) * pageSize;
     const isAdmin = auth?.role === "ADMIN" || auth?.role === "MANAGER";
+    const isGSM = auth?.role === "GSM";
+
+    // --- 0. PHẠM VI DỮ LIỆU THEO ROLE (SCOPE) ---
+    // Admin/Manager: xem toàn bộ
+    // GSM: xem toàn bộ khách được phân cho NV trong CÙNG PHÒNG BAN với GSM đó
+    // Còn lại (Sale...): chỉ xem khách của chính mình
+    let scopeCondition: Prisma.CustomerWhereInput = {};
+    if (isAdmin) {
+      scopeCondition = {};
+    } else if (isGSM) {
+      if (!auth.departmentId) {
+        return {
+          success: false,
+          message: "Tài khoản GSM chưa được gán phòng ban.",
+        };
+      }
+      scopeCondition = { assignedTo: { departmentId: auth.departmentId } };
+    } else {
+      scopeCondition = { assignedToId: userId };
+    }
 
     // --- 1. KHỞI TẠO ĐIỀU KIỆN LỌC (WHERE) ---
     let where: Prisma.CustomerWhereInput = {};
@@ -1485,7 +1691,7 @@ export async function getCustomerList({
       case "frozen":
         // Khách bị đóng băng HOẶC khách trễ tiến độ chăm sóc
         where.AND = [
-          { assignedToId: isAdmin ? undefined : userId }, // Admin xem hết, Sale xem của mình
+          scopeCondition,
           {
             OR: [{ status: "FROZEN" }, { isLate: true }],
           },
@@ -1493,51 +1699,54 @@ export async function getCustomerList({
         break;
 
       case "lost":
-        // Khách đã thất bại
-        where.status = "LOSE";
-        if (!isAdmin) where.assignedToId = userId;
+        where = { status: "LOSE", ...scopeCondition };
         break;
+
       case "done":
-        // Khách đã hoàn thành
-        where.status = "DEAL_DONE";
-        if (!isAdmin) where.assignedToId = userId;
+        where = { status: "DEAL_DONE", ...scopeCondition };
         break;
+
       case "pending-approval":
-        // Các trạng thái chờ Admin duyệt
-        where.status = {
-          in: [
-            "PENDING_DEAL_APPROVAL",
-            "PENDING_LOSE_APPROVAL",
-            "PENDING_VIEW",
-          ],
+        where = {
+          status: {
+            in: [
+              "PENDING_DEAL_APPROVAL",
+              "PENDING_LOSE_APPROVAL",
+              "PENDING_VIEW",
+            ],
+          },
+          ...scopeCondition,
         };
-        // Sale chỉ thấy yêu cầu mình gửi, Admin thấy tất cả
-        if (!isAdmin) where.assignedToId = userId;
+        break;
+
+      default:
+        // Tab mặc định (ví dụ "all") vẫn phải áp dụng scope
+        where = { ...scopeCondition };
         break;
     }
 
     // --- 3. BỘ LỌC NÂNG CAO (GLOBAL FILTERS) ---
-
-    // Tìm kiếm (Search)
     if (search) {
-      const searchCondition = {
-        OR: [
-          { fullName: { contains: search } },
-          { phone: { contains: search } },
-          { licensePlate: { contains: search } },
-        ],
-      };
-
-      // Kết hợp search vào điều kiện where hiện tại
-      where = { ...where, ...searchCondition };
+      where.AND = [
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
+        {
+          OR: [
+            { fullName: { contains: search } },
+            { phone: { contains: search } },
+            { licensePlate: { contains: search } },
+          ],
+        },
+      ];
     }
 
-    // Lọc theo tỉnh thành
     if (province) {
       where.province = province;
     }
 
-    // Lọc theo dòng xe
     if (carModelId) {
       where.carModelId = carModelId;
     }
@@ -1554,7 +1763,7 @@ export async function getCustomerList({
           _count: { select: { activities: true, tasks: true } },
         },
         orderBy: {
-          updatedAt: "desc", // Ưu tiên những khách vừa có tương tác lên đầu
+          updatedAt: "desc",
         },
       }),
       db.customer.count({ where }),
@@ -1587,3 +1796,303 @@ export type CustomerWithRelations = Prisma.CustomerGetPayload<{
     _count: { select: { activities: true } };
   };
 }>;
+
+// Sửa lại chữ ký hàm — thêm tham số userRole
+export const handleExportFullCustomerExcel = async (
+  data: any[],
+  userRole?: string, // <-- THÊM: truyền role người đang export vào
+) => {
+  const workbook = new ExcelJS.Workbook();
+  const today = dayjs();
+  const isManager = userRole === "MANAGER" || userRole === "GSM"; // <-- THÊM
+
+  // --- 1. ĐỊNH NGHĨA STYLE CHUẨN CORPORATE ---
+  const styles = {
+    header: {
+      font: { bold: true, color: { argb: "FFFFFF" }, size: 10 },
+      fill: { type: "pattern", pattern: "solid", fgColor: { argb: "203764" } },
+      alignment: { vertical: "middle", horizontal: "center", wrapText: true },
+      border: {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "double" },
+        right: { style: "thin" },
+      },
+    } as ExcelJS.Style,
+    cell: {
+      alignment: {
+        vertical: "middle",
+        horizontal: "left",
+        wrapText: false,
+        indent: 1,
+      },
+      font: { size: 10, name: "Arial" },
+      border: {
+        top: { style: "thin", color: { argb: "BFBFBF" } },
+        left: { style: "thin", color: { argb: "BFBFBF" } },
+        bottom: { style: "thin", color: { argb: "BFBFBF" } },
+        right: { style: "thin", color: { argb: "BFBFBF" } },
+      },
+    } as ExcelJS.Style,
+    number: {
+      numFmt: NUMBER_FORMAT,
+      alignment: { horizontal: "right", indent: 1 },
+    },
+  };
+
+  // --- 2. SHEET 1: TOÀN BỘ HỒ SƠ THU MUA / ĐỔI XE ---
+  const sheet1 = workbook.addWorksheet("BAO CAO THU MUA");
+  const sellLeads = data.filter((c) => c.type !== "BUY");
+
+  // Cột đầy đủ (cho ADMIN)
+  const fullColumns = [
+    { header: "STT", key: "stt", width: 5 },
+    { header: "PHÂN LOẠI", key: "demand", width: 15 },
+    { header: "TRẠNG THÁI", key: "status", width: 15 },
+    { header: "LÝ DO ĐÓNG BĂNG/LOST", key: "reasonDetail", width: 15 },
+    { header: "MỨC ĐỘ ƯU TIÊN", key: "level", width: 15 },
+    { header: "CHI NHÁNH", key: "branch", width: 20 },
+    { header: "NV TIẾP NHẬN", key: "staff", width: 20 },
+    { header: "NGÀY NHẬN", key: "dateIn", width: 12 },
+    { header: "GIỜ NHẬN", key: "timeIn", width: 10 },
+    { header: "NGƯỜI GIỚI THIỆU", key: "refStaff", width: 20 },
+    { header: "BỘ PHẬN GT", key: "source", width: 20 },
+    { header: "NGUỒN CHI TIẾT", key: "sourceDetail", width: 25 },
+    { header: "TÊN KHÁCH HÀNG", key: "name", width: 25 },
+    { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 }, // <-- ẨN khi MANAGER
+    { header: "TỈNH/THÀNH", key: "province", width: 15 },
+    { header: "ĐỊA CHỈ CHI TIẾT", key: "address", width: 35 },
+    { header: "MODEL XE", key: "model", width: 20 },
+    { header: "PHIÊN BẢN (GRADE)", key: "grade", width: 15 },
+    { header: "MODEL MUỐN ĐỔI", key: "modelTrade", width: 20 },
+    { header: "PHIÊN BẢN MUỐN ĐỔI", key: "gradeTradee", width: 15 },
+    { header: "NĂM SẢN XUẤT", key: "year", width: 10 },
+    { header: "BIỂN SỐ", key: "plate", width: 15 }, // <-- ẨN khi MANAGER
+    { header: "ODO (KM)", key: "odo", width: 12 },
+    { header: "MÀU XE", key: "color", width: 12 },
+    { header: "GIÁ KH KỲ VỌNG", key: "expPrice", width: 15 },
+    { header: "GIÁ ĐỊNH GIÁ (T-SURE)", key: "tsurePrice", width: 18 },
+    { header: "NV GIÁM ĐỊNH", key: "inspector", width: 20 },
+    { header: "NGÀY GIÁM ĐỊNH", key: "inspectorDate", width: 20 },
+    { header: "TÌNH TRẠNG XEM XE", key: "inspectStatus", width: 18 },
+    { header: "ĐỊA ĐIỂM XEM XE", key: "inspectLoc", width: 20 },
+    { header: "LẦN LH GẦN NHẤT", key: "lastDate", width: 15 },
+    { header: "KẾT QUẢ CHI TIẾT", key: "lastRes", width: 40 },
+    { header: "TỔNG SỐ LẦN LH", key: "count", width: 12 },
+    { header: "HẸN GỌI LẠI", key: "nextDate", width: 15 },
+    { header: "NỘI DUNG HẸN", key: "nextNote", width: 30 },
+    { header: "GHI CHÚ HỆ THỐNG", key: "internalNote", width: 40 },
+  ];
+
+  // Nếu là MANAGER -> bỏ cột phone và plate khỏi danh sách cột hiển thị
+  sheet1.columns = isManager
+    ? fullColumns.filter((c) => c.key !== "phone" && c.key !== "plate")
+    : fullColumns;
+
+  sellLeads.forEach((item, index) => {
+    const reasonDetail =
+      item.status === "FROZEN"
+        ? item.frozenReason
+        : item.status === "LOSE" || item.status === "CANCELLED"
+          ? item.lostReason
+          : "";
+
+    const isFuture =
+      item.nextContactAt && dayjs(item.nextContactAt).isAfter(today);
+
+    // Vẫn build đủ object data như cũ; các key không có trong sheet1.columns
+    // (phone, plate khi isManager) sẽ tự động bị ExcelJS bỏ qua, không cần if/else riêng
+    const row = sheet1.addRow({
+      stt: index + 1,
+      demand: translateStatus(item.type),
+      status: translateStatus(item.status),
+      reasonDetail: reasonDetail || "",
+      level: translateStatus(item.urgencyLevel),
+      branch: item.branch.name || "Toyota Bình Dương",
+      staff: item.assignedTo?.fullName,
+      dateIn: dayjs(item.createdAt).format("DD/MM/YYYY"),
+      timeIn: dayjs(item.createdAt).format("HH:mm"),
+      refStaff: item.referrer?.fullName,
+      source: item.referrer?.department?.name,
+      sourceDetail: translateSource(item.source),
+      name: item.fullName.toUpperCase(),
+      phone: item.phone,
+      province: item.province,
+      address: item.address,
+      model: item.carModel?.name || "N/A",
+      grade: item.carModel?.grade || "N/A",
+      gradeTradee: item.tradeInModel?.grade,
+      modelTrade: item.tradeInModel?.name,
+      year: item.leadCar?.year || item.carYear,
+      plate: item.leadCar?.licensePlate || item.licensePlate,
+      odo: item.leadCar?.odo ? Number(item.leadCar.odo) : null,
+      color: item.leadCar?.color || "---",
+      expPrice: Number(item.leadCar?.expectedPrice || item.expectedPrice || 0),
+      tsurePrice: Number(item.leadCar?.tSurePrice || 0),
+      inspector: item.inspectorRef?.fullName,
+      inspectorDate: item.inspectDoneDate
+        ? dayjs(item.inspectDoneDate).format("DD/MM/YYYY")
+        : "",
+      inspectStatus: translateStatus(item.inspectStatus),
+      inspectLoc: item.inspectLocation || "---",
+      lastDate: item.lastContactAt
+        ? dayjs(item.lastContactAt).format("DD/MM/YYYY")
+        : "",
+      lastRes: item.lastContactResult,
+      count: item.contactCount || 0,
+      nextDate: isFuture
+        ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFuture
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
+      internalNote: item.note,
+    });
+
+    // Format tiền tệ & ODO cho từng dòng
+    ["odo", "expPrice", "tsurePrice"].forEach((k) => {
+      const cell = row.getCell(k);
+      cell.numFmt = NUMBER_FORMAT;
+      cell.alignment = { horizontal: "right" };
+    });
+  });
+
+  // --- SHEET 2: CHI TIẾT QUẢN LÝ BÁN HÀNG (SALES LEAD) ---
+  const sheet2 = workbook.addWorksheet("BAO CAO BAN HANG");
+  const buyLeads = data.filter((c) => c.type === "BUY");
+
+  const fullColumns2 = [
+    { header: "STT", key: "stt", width: 5 },
+    { header: "PHÂN LOẠI KH", key: "level", width: 15 },
+    { header: "TRẠNG THÁI", key: "status", width: 15 },
+    { header: "LÝ DO ĐÓNG BĂNG/LOST", key: "reasonDetail", width: 15 },
+    { header: "CHI NHÁNH", key: "branch", width: 20 },
+    { header: "NV TIẾP NHẬN", key: "staff", width: 20 },
+    { header: "NGÀY NHẬN", key: "dateIn", width: 12 },
+    { header: "GIỜ NHẬN", key: "timeIn", width: 10 },
+    { header: "NGƯỜI GIỚI THIỆU", key: "refStaff", width: 20 },
+    { header: "BỘ PHẬN GT", key: "source", width: 20 },
+    { header: "NGUỒN CHI TIẾT", key: "sourceDetail", width: 25 },
+    { header: "TÊN KHÁCH HÀNG", key: "name", width: 25 },
+    { header: "SỐ ĐIỆN THOẠI", key: "phone", width: 15 }, // <-- ẨN khi MANAGER
+    { header: "TỈNH/THÀNH", key: "province", width: 15 },
+    { header: "ĐỊA CHỈ", key: "address", width: 35 },
+    { header: "NGÀY XEM XE", key: "dateViewCar", width: 35 },
+    { header: "MODEL QUAN TÂM", key: "model", width: 20 },
+    { header: "PHIÊN BẢN", key: "grade", width: 15 },
+    { header: "NĂM SẢN XUẤT", key: "year", width: 15 },
+    { header: "MÀU XE", key: "color", width: 15 },
+    { header: "LẦN LH GẦN NHẤT", key: "lastDate", width: 12 },
+    { header: "KẾT QUẢ LIÊN HỆ", key: "lastRes", width: 40 },
+    { header: "TỔNG SỐ LẦN LH", key: "count", width: 12 },
+    { header: "HẸN GỌI LẠI/GẶP", key: "nextDate", width: 15 },
+    { header: "NỘI DUNG HẸN", key: "nextNote", width: 35 },
+    { header: "GHI CHÚ NỘI BỘ", key: "note", width: 40 },
+  ];
+
+  sheet2.columns = isManager
+    ? fullColumns2.filter((c) => c.key !== "phone")
+    : fullColumns2;
+
+  buyLeads.forEach((item, index) => {
+    const isFuture =
+      item.nextContactAt && dayjs(item.nextContactAt).isAfter(today);
+    const reasonDetail =
+      item.status === "FROZEN"
+        ? item.frozenReason
+        : item.status === "LOSE" || item.status === "CANCELLED"
+          ? item.lostReason
+          : "";
+    const row = sheet2.addRow({
+      stt: index + 1,
+      level: translateStatus(item.urgencyLevel),
+      status: translateStatus(item.status),
+      reasonDetail: reasonDetail || "",
+      branch: item.branch.name || "Toyota Bình Dương",
+      staff: item.assignedTo?.fullName,
+      dateIn: dayjs(item.createdAt).format("DD/MM/YYYY"),
+      source: item.sourceName || item.referrer?.department?.name || "Trực tiếp",
+      sourceDetail: translateSource(item.source),
+      campaign: item.campaignName || "---",
+      name: item.fullName.toUpperCase(),
+      phone: item.phone,
+      province: item.province,
+      address: item.address,
+      dateViewCar: dayjs(item.dateViewCar).format("DD/MM/YYYY") ?? "-",
+      refStaff: item.referrer?.fullName,
+      model: item.carModel?.name || "---",
+      grade: item.carModel?.grade || "---",
+      year: item.leadCar?.year || "---",
+      color: item.leadCar?.color || "---",
+      purpose: item.usagePurpose || "---",
+      testDrive: item.hasTestDrive ? "Đã lái thử" : "Chưa",
+      budget: item.budget ? Number(item.budget) : null,
+      payment: item.paymentMethod === "INSTALLMENT" ? "Trả góp" : "Tiền mặt",
+      bank: item.bankName || "---",
+      tradeIn: item.hasTradeIn ? "Có nhu cầu đổi xe" : "Không",
+      lastDate: item.lastContactAt
+        ? dayjs(item.lastContactAt).format("DD/MM/YYYY")
+        : "",
+      timeIn: dayjs(item.createdAt).format("HH:mm"),
+      lastRes: item.lastContactResult,
+      count: item.contactCount || 0,
+      nextDate: isFuture
+        ? dayjs(item.nextContactAt).format("DD/MM/YYYY")
+        : dayjs(item.nextContactAt).format("DD/MM/YYYY") + " (Chưa liên hệ)",
+      nextNote: isFuture
+        ? item.nextContactNote
+        : item.nextContactNote + " (Chưa liên hệ)",
+      note: item.note,
+    });
+  });
+
+  // --- 4. CÔNG ĐOẠN "LÀM ĐẸP" CUỐI CÙNG (giữ nguyên như cũ) ---
+  [sheet1, sheet2].forEach((s) => {
+    s.getRow(1).height = 40;
+    s.getRow(1).eachCell((c) => {
+      c.style = styles.header;
+    });
+
+    s.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      row.height = 25;
+      row.eachCell((cell) => {
+        cell.style = { ...styles.cell };
+        if (rowNumber % 2 === 0) {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "F2F2F2" },
+          };
+        }
+      });
+
+      const statusCell = row.getCell("status");
+      if (statusCell.value === "Chốt đơn")
+        statusCell.font = { color: { argb: "008000" }, bold: true };
+      if (statusCell.value === "Đóng băng")
+        statusCell.font = { color: { argb: "FF0000" } };
+    });
+
+    s.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
+    s.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: s.columnCount },
+    };
+  });
+
+  // --- 5. XUẤT FILE ---
+  const buffer = await workbook.xlsx.writeBuffer();
+  const filename = isManager
+    ? `BAO_CAO_PHONG_BAN_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`
+    : `CRM_FULL_REPORT_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`;
+  saveAs(new Blob([buffer]), filename);
+};
+
+// handleExportFullCustomerExcelManager giữ NGUYÊN không đổi, để dưới như file gốc
+
+export async function getCurrentUserRoleAction() {
+  const auth = await getCurrentUser();
+  if (!auth) return null;
+  return auth.role;
+}

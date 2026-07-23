@@ -41,6 +41,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/staff-activities": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -52,6 +53,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/referrals/new": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -64,6 +66,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/marketing/listcustomer": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALE_MANAGER",
     "MARKETING",
@@ -72,6 +75,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/customer-actioned": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -79,6 +83,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/my-referrals": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -90,6 +95,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/showroom": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -101,6 +107,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/profile": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -112,6 +119,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/schedules": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",
@@ -127,6 +135,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "/": [
     "ADMIN",
     "MANAGER",
+    "GSM",
     "ADMIN_MANAGER",
     "SALES_STAFF",
     "PURCHASE_STAFF",

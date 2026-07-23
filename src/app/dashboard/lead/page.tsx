@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { getCurrentUserRoleAction } from "@/actions/customer-actions";
 import {
   Table,
   Tag,
@@ -59,8 +60,19 @@ const { Text, Title } = Typography;
 const { Option, OptGroup } = Select;
 
 export default function LeadsPage() {
+  const [currentUserRole, setCurrentUserRole] = useState<string | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    getCurrentUserRoleAction().then((role) => {
+      if (role) setCurrentUserRole(role);
+    });
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
+
   const [total, setTotal] = useState(0);
   const [branches, setBranches] = useState<any[]>([]);
 
@@ -158,6 +170,8 @@ export default function LeadsPage() {
     loadData();
   }, [loadData]);
 
+  // Xuất Excel: server sẽ tự lọc theo phòng ban nếu người dùng là MANAGER
+  // (giống hệt logic của getLeadsAction), và ẩn SĐT/biển số nếu là MANAGER
   const onExportExcel = async () => {
     setExportLoading(true);
     try {
@@ -170,6 +184,9 @@ export default function LeadsPage() {
         : undefined;
 
       // Truyền sDate, eDate (kiểu Date) vào hàm
+      // LƯU Ý: getExportCustomerData cần tự áp dụng phân quyền theo phòng ban
+      // giống getLeadsAction (server tự biết role qua getCurrentUser(), không
+      // cần FE truyền role lên vì FE không đáng tin để quyết định bảo mật)
       const exportData = await getExportCustomerData(
         sDate,
         eDate,
@@ -179,9 +196,10 @@ export default function LeadsPage() {
       if (!exportData || exportData.length === 0) {
         return message.info("Không có dữ liệu");
       }
-      console.log(exportData);
 
-      await handleExportFullCustomerExcel(exportData);
+      // Truyền role hiện tại chỉ để quyết định ẨN CỘT hiển thị (UI),
+      // dữ liệu thực tế đã được lọc đúng phạm vi từ phía server rồi
+      await handleExportFullCustomerExcel(exportData, currentUserRole);
       message.success(`Xuất thành công!`);
     } catch (error: any) {
       console.error("Lỗi chi tiết:", error);
@@ -473,7 +491,6 @@ export default function LeadsPage() {
                   className="w-full lg:w-auto h-10 rounded-xl font-bold"
                   onClick={() => {
                     setIsOverdueModalOpen(true);
-                    console.log(1111);
                   }}
                 >
                   QUÁ HẠN
@@ -609,7 +626,6 @@ export default function LeadsPage() {
         <div className="md:hidden">{renderMobileList()}</div>
       </div>
       {/* MODAL DETAIL */}
-      {/* MODAL CHI TIẾT KHÁCH HÀNG (Cái code Nghĩa gửi lúc đầu) */}
       <LeadDetailModal
         open={isModalOpen}
         lead={selectedLead}
@@ -621,10 +637,9 @@ export default function LeadsPage() {
 
       {/* MODAL DANH SÁCH QUÁ HẠN */}
       <LeadsOverdueModal
-        open={isOverdueModalOpen} // Khớp với biến state 'open'
+        open={isOverdueModalOpen}
         onClose={() => setIsOverdueModalOpen(false)}
         onViewDetail={(lead: any) => {
-          // Bấm "Xem" từ modal quá hạn -> Lưu lead -> Mở modal chi tiết
           setSelectedLead(lead);
           setIsModalOpen(true);
         }}

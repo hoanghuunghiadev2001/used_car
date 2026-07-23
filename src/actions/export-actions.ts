@@ -29,15 +29,32 @@ export async function getExportCustomerData(
     };
   }
 
-  // Phân quyền chi nhánh
+  // --- PHÂN QUYỀN (BASE SCOPE) ---
   if (
-    user.role !== "ADMIN" &&
-    !user.isGlobalManager &&
-    user.role !== "SALE_MANAGER"
+    user.role === "ADMIN" ||
+    user.isGlobalManager ||
+    user.role === "SALE_MANAGER"
   ) {
+    // Xem toàn bộ, có thể lọc thêm theo chi nhánh nếu truyền vào
+    if (branchId && branchId !== "ALL") {
+      whereClause.branchId = branchId;
+    }
+  } else if (user.role === "GSM") {
+    // GSM: chỉ xuất khách được GIỚI THIỆU bởi NV trong cùng phòng ban
+    if (!user.departmentId) {
+      throw new Error("Tài khoản GSM chưa được gán phòng ban.");
+    }
+    whereClause.referrer = { departmentId: user.departmentId };
+    // Vẫn cho phép GSM thu hẹp thêm theo chi nhánh cụ thể nếu muốn
+    if (branchId && branchId !== "ALL") {
+      whereClause.branchId = branchId;
+    }
+  } else if (user.role === "MANAGER") {
+    // Quản lý chi nhánh: xuất theo branchId của họ
     whereClause.branchId = user.branchId;
-  } else if (branchId && branchId !== "ALL") {
-    whereClause.branchId = branchId;
+  } else {
+    // Mặc định (Sale...): chỉ xuất khách của chính mình
+    whereClause.branchId = user.branchId;
   }
 
   // 3. Truy vấn dữ liệu (Bỏ hoàn toàn orderBy tầng DB để cứu RAM sort_buffer_size)
@@ -70,17 +87,14 @@ export async function getExportCustomerData(
       contracts: { select: { id: true } },
       tasks: {
         where: { status: "PENDING" },
-        // ❌ Đã xóa orderBy tầng DB
       },
       activities: {
-        // ❌ Đã xóa orderBy tầng DB
         include: {
           user: { select: { fullName: true } },
           reason: { select: { content: true } },
         },
       },
     },
-    // ❌ Đã xóa orderBy ở bảng cha Customer
   });
 
   // 4. Transform dữ liệu & Tự Sắp xếp bằng JavaScript (Tầng Node.js)

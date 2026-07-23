@@ -38,6 +38,7 @@ type Role =
   | "PURCHASE_STAFF"
   | "SALES_STAFF"
   | "REFERRER"
+  | "GSM"
   | "MARKETING"
   | "APPRAISER"
   | "SALE_MANAGER"
@@ -74,6 +75,7 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
     SALE_MANAGER: { label: "Quản lý bán hàng", color: "#13c2c2" },
     MARKETING: { label: "Marketing", color: "#eb2f96" },
     ADMIN_MANAGER: { label: "Quản lý Admin", color: "#eb2f96" },
+    GSM: { label: "Trưởng phòng", color: "#eb2f96" },
   };
 
   // Helper check quyền
@@ -357,6 +359,13 @@ export default function Sidebar({ role, isGobal }: SidebarProps) {
         <Link href="/sale-manager/customer-list">Danh sách khách hàng</Link>
       ),
     },
+
+    hasAccess(["GSM"]) && {
+      key: "/dashboard/gsm/leads",
+      icon: <DashboardOutlined />,
+      label: <Link href="/dashboard/gsm/leads">Danh sách khách hàng</Link>,
+    },
+
     hasAccess(["MARKETING"]) && {
       key: "/dashboard/marketing/listcustomer",
       icon: <DashboardOutlined />,

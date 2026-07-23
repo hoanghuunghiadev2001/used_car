@@ -160,6 +160,10 @@ export default function UserFormModal({
                           <Select.Option value="MARKETING">
                             Marketing
                           </Select.Option>
+
+                          <Select.Option value="GSM">
+                            Trưởng phòng
+                          </Select.Option>
                         </Select>
                       </Form.Item>
                     </Col>

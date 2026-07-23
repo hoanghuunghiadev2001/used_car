@@ -561,6 +561,7 @@ enum Role {
   SALE_MANAGER
   ADMIN_MANAGER
   MARKETING
+  GSM
 }
 
 enum ReferralType {
