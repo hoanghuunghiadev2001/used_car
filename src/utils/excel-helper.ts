@@ -82,6 +82,7 @@ export const handleExportFullCustomerExcel = async (
   const workbook = new ExcelJS.Workbook();
   const today = dayjs();
   const isManager = userRole === "MANAGER";
+  const isGSM = userRole === "GSM";
 
   // --- 1. ĐỊNH NGHĨA STYLE CHUẨN CORPORATE ---
   const styles = {
@@ -172,7 +173,7 @@ export const handleExportFullCustomerExcel = async (
   ];
 
   // Nếu là Trưởng phòng -> bỏ cột phone và plate ra khỏi file xuất
-  sheet1.columns = isManager
+  sheet1.columns = isGSM
     ? fullColumns1.filter((c) => c.key !== "phone" && c.key !== "plate")
     : fullColumns1;
 
@@ -272,6 +273,7 @@ export const handleExportFullCustomerExcel = async (
     { header: "MÀU XE", key: "color", width: 15 },
     { header: "NGÂN SÁCH", key: "budget", width: 15 }, // <-- ADD THIS
     { header: "LẦN LH GẦN NHẤT", key: "lastDate", width: 12 },
+    { header: "BIỂN SỐ", key: "plate", width: 15 }, // ẨN nếu MANAGER
     { header: "KẾT QUẢ LIÊN HỆ", key: "lastRes", width: 40 },
     { header: "TỔNG SỐ LẦN LH", key: "count", width: 12 },
     { header: "HẸN GỌI LẠI/GẶP", key: "nextDate", width: 15 },
@@ -279,7 +281,7 @@ export const handleExportFullCustomerExcel = async (
     { header: "GHI CHÚ NỘI BỘ", key: "note", width: 40 },
   ];
 
-  sheet2.columns = isManager
+  sheet2.columns = isGSM
     ? fullColumns2.filter((c) => c.key !== "phone")
     : fullColumns2;
 
@@ -308,6 +310,7 @@ export const handleExportFullCustomerExcel = async (
       province: item.province,
       address: item.address,
       dateViewCar: dayjs(item.dateViewCar).format("DD/MM/YYYY") ?? "-",
+      plate: item.leadCar?.licensePlate || item.licensePlate,
       refStaff: item.referrer?.fullName,
       model: item.carModel?.name || "---",
       grade: item.carModel?.grade || "---",
@@ -385,7 +388,7 @@ export const handleExportFullCustomerExcel = async (
 
   // --- 5. XUẤT FILE ---
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = isManager
+  const filename = isGSM
     ? `DS_Phong_Ban_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`
     : `CRM_FULL_REPORT_${dayjs().format("YYYYMMDD_HHmm")}.xlsx`;
   saveAs(new Blob([buffer]), filename);
