@@ -534,7 +534,7 @@ export async function approveCarPurchase(
               purchaserId: activity.createdById,
               referrerId: activity.customer.referrerId,
               purchasedAt: new Date(),
-              status: "REFURBISHING",
+              status: "READY_FOR_SALE",
 
               // Đảm bảo ép kiểu Date cho các trường deadline
               registrationDeadline: carData.registrationDeadline
